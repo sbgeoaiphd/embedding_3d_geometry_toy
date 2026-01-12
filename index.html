@@ -3,79 +3,121 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>3D Separability Toy</title>
+  <title>3D Separability Playground</title>
   <style>
+    :root {
+      --bg0: #0b0d12;
+      --bg1: #0f1320;
+      --panel: rgba(0,0,0,0.36);
+      --panelBorder: rgba(255,255,255,0.14);
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.72);
+      --muted2: rgba(255,255,255,0.58);
+      --line: rgba(255,255,255,0.12);
+
+      --a: rgba(255, 204, 102, 0.95);
+      --b: rgba(102, 217, 255, 0.95);
+
+      --axisX: rgba(255, 120, 120, 0.85);
+      --axisY: rgba(120, 255, 170, 0.82);
+      --axisZ: rgba(120, 170, 255, 0.82);
+    }
+
     html, body {
       height: 100%;
       margin: 0;
-      background: #0b0d12;
-      color: rgba(255,255,255,0.92);
+      background: radial-gradient(1200px 900px at 55% 35%, var(--bg1), var(--bg0));
+      color: var(--text);
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     }
+
     #wrap {
       position: relative;
       width: 100%;
       height: 100%;
       overflow: hidden;
     }
-    canvas {
+
+    canvas#c {
       width: 100%;
       height: 100%;
       display: block;
       touch-action: none;
       cursor: grab;
     }
-    canvas:active { cursor: grabbing; }
+    canvas#c:active { cursor: grabbing; }
 
     #ui {
       position: absolute;
       top: 12px;
       left: 12px;
-      width: min(460px, calc(100vw - 24px));
-      background: rgba(0,0,0,0.36);
-      border: 1px solid rgba(255,255,255,0.14);
+      width: min(520px, calc(100vw - 24px));
+      background: var(--panel);
+      border: 1px solid var(--panelBorder);
       border-radius: 14px;
       padding: 10px 12px 11px;
-      backdrop-filter: blur(7px);
-      -webkit-backdrop-filter: blur(7px);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 12px 44px rgba(0,0,0,0.40);
+      user-select: none;
     }
+
+    #titleRow {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
     #title {
-      font-weight: 700;
+      font-weight: 760;
       font-size: 14px;
       letter-spacing: 0.2px;
-      margin-bottom: 8px;
-      opacity: 0.95;
+      opacity: 0.98;
+      line-height: 1.1;
     }
+
+    #tagline {
+      font-size: 12px;
+      color: var(--muted2);
+      white-space: nowrap;
+    }
+
+    .block { margin-top: 8px; }
+    .lbl {
+      font-size: 12px;
+      color: var(--muted2);
+      margin-bottom: 6px;
+    }
+
     select {
       width: 100%;
       font-size: 14px;
       padding: 8px 10px;
       border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(14,16,24,0.9);
-      color: rgba(255,255,255,0.92);
+      background: rgba(14,16,24,0.92);
+      color: var(--text);
       outline: none;
     }
+
     #desc {
       margin-top: 9px;
       font-size: 13px;
       line-height: 1.35;
-      opacity: 0.9;
+      color: rgba(255,255,255,0.88);
     }
-    #hint {
-      margin-top: 7px;
-      font-size: 12px;
-      opacity: 0.72;
-    }
+
     #legend {
-      margin-top: 7px;
+      margin-top: 8px;
       display: flex;
-      gap: 10px;
+      gap: 12px;
       align-items: center;
       font-size: 12px;
-      opacity: 0.8;
+      opacity: 0.84;
     }
+
     .swatch {
       width: 10px;
       height: 10px;
@@ -83,7 +125,187 @@
       display: inline-block;
       margin-right: 6px;
       border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.22);
     }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .row.noLine { border-top: none; padding-top: 0; }
+
+    .left {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .rowTitle {
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.88);
+      line-height: 1.15;
+    }
+    .rowHint {
+      font-size: 11.5px;
+      color: var(--muted2);
+      line-height: 1.15;
+    }
+
+    /* Switch */
+    .switch {
+      position: relative;
+      width: 42px;
+      height: 22px;
+      flex: 0 0 auto;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .switch span {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.16);
+      transition: 160ms ease;
+    }
+    .switch span::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 2px;
+      top: 1px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.92);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.28);
+      transition: 160ms ease;
+    }
+    .switch input:checked + span {
+      background: rgba(120,170,255,0.28);
+      border-color: rgba(120,170,255,0.42);
+    }
+    .switch input:checked + span::before {
+      transform: translateX(20px);
+      background: rgba(255,255,255,0.95);
+    }
+
+    /* Buttons */
+    .btnRow {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button {
+      flex: 1;
+      font-size: 13px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(14,16,24,0.88);
+      color: rgba(255,255,255,0.92);
+      cursor: pointer;
+      transition: 140ms ease;
+    }
+    button:hover {
+      border-color: rgba(255,255,255,0.26);
+      background: rgba(18,20,30,0.92);
+    }
+    button:active { transform: translateY(1px); }
+
+    /* Sliders */
+    .sliderRow {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      align-items: center;
+    }
+    .sliderRow .sLabel {
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.88);
+    }
+    input[type="range"] {
+      width: 100%;
+      margin-top: 6px;
+      accent-color: rgba(160,190,255,0.9);
+    }
+    .sliderWrap {
+      grid-column: 1 / -1;
+    }
+
+    /* Score box */
+    #scoreBox {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .scoreLine {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.88);
+      margin-bottom: 6px;
+    }
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.12);
+      overflow: hidden;
+    }
+    #bar2d {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(255,204,102,0.60), rgba(102,217,255,0.65));
+    }
+
+    /* Reveal panel */
+    #revealPanel {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    #stat3d {
+      font-size: 12.5px;
+      line-height: 1.35;
+      color: rgba(255,255,255,0.88);
+      margin-bottom: 8px;
+    }
+    #planeEq {
+      font-size: 11.5px;
+      color: var(--muted2);
+      margin-top: 6px;
+      line-height: 1.25;
+    }
+
+    #plot {
+      width: 100%;
+      height: 92px;
+      display: block;
+      border-radius: 10px;
+      background: rgba(14,16,24,0.60);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+    #hint {
+      margin-top: 9px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -91,14 +313,128 @@
     <canvas id="c"></canvas>
 
     <div id="ui">
-      <div id="title">3D separability toy</div>
-      <select id="scenario"></select>
-      <div id="desc"></div>
-      <div id="legend">
-        <span><span class="swatch" id="swA"></span>Group A</span>
-        <span><span class="swatch" id="swB"></span>Group B</span>
+      <div id="titleRow">
+        <div id="title">3D separability playground</div>
+        <div id="tagline">Rotate, then reveal</div>
       </div>
-      <div id="hint">Drag to rotate the entire coordinate frame. No plane, no hints, just vibes.</div>
+
+      <div class="block">
+        <div class="lbl">Scenario</div>
+        <select id="scenario"></select>
+        <div id="desc"></div>
+        <div id="legend">
+          <span><span class="swatch" id="swA"></span>Group A</span>
+          <span><span class="swatch" id="swB"></span>Group B</span>
+        </div>
+      </div>
+
+      <div class="btnRow">
+        <button id="resetBtn" title="Reset rotation and zoom">Reset view</button>
+        <button id="newBtn" title="Regenerate points with a new seed">New sample</button>
+      </div>
+
+      <div class="row noLine">
+        <div class="left">
+          <div class="rowTitle">Teaching overlays</div>
+          <div class="rowHint">Extra cues, stats, and plots</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="teach" checked />
+          <span></span>
+        </label>
+      </div>
+
+      <div id="teachPanel">
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Show best linear plane</div>
+            <div class="rowHint">The best attempt at a separating plane</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showPlane" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Show margin band</div>
+            <div class="rowHint">Only meaningful when perfectly separable</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showMargin" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Show grid</div>
+            <div class="rowHint">A faint XY grid for orientation</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showGrid" checked />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Auto rotate</div>
+            <div class="rowHint">Slow, steady spin</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="autoRotate" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Reveal truth</div>
+            <div class="rowHint">Shows whether it is truly linearly separable</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="revealTruth" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="sliderRow">
+          <div class="sLabel">Zoom</div>
+          <div id="zoomVal" class="rowHint">3.40</div>
+          <div class="sliderWrap">
+            <input type="range" id="zoom" min="2.60" max="6.10" step="0.01" value="3.40" />
+          </div>
+        </div>
+
+        <div class="sliderRow">
+          <div class="sLabel">Point size</div>
+          <div id="ptVal" class="rowHint">3.00</div>
+          <div class="sliderWrap">
+            <input type="range" id="ptSize" min="1.80" max="5.60" step="0.05" value="3.00" />
+          </div>
+        </div>
+
+        <div id="scoreBox">
+          <div class="scoreLine">
+            <span>2D view line score</span>
+            <span id="score2d">…</span>
+          </div>
+          <div class="bar"><div id="bar2d"></div></div>
+          <div style="margin-top:6px;font-size:11.5px;color:rgba(255,255,255,0.58);line-height:1.25;">
+            This is: “If you only saw the current projection, how well could a line split it?”
+          </div>
+        </div>
+
+        <div id="revealPanel" class="hidden">
+          <div id="stat3d"></div>
+          <canvas id="plot"></canvas>
+          <div id="planeEq"></div>
+        </div>
+      </div>
+
+      <div id="hint">Drag to rotate. Scroll to zoom. Double-click to reset. 🙂</div>
     </div>
   </div>
 
@@ -112,7 +448,55 @@
       const swA = document.getElementById("swA");
       const swB = document.getElementById("swB");
 
-      // --------- Tiny math kit ----------
+      const teachEl = document.getElementById("teach");
+      const teachPanel = document.getElementById("teachPanel");
+      const showPlaneEl = document.getElementById("showPlane");
+      const showMarginEl = document.getElementById("showMargin");
+      const showGridEl = document.getElementById("showGrid");
+      const autoRotateEl = document.getElementById("autoRotate");
+      const revealTruthEl = document.getElementById("revealTruth");
+
+      const resetBtn = document.getElementById("resetBtn");
+      const newBtn = document.getElementById("newBtn");
+
+      const zoomEl = document.getElementById("zoom");
+      const zoomValEl = document.getElementById("zoomVal");
+
+      const ptSizeEl = document.getElementById("ptSize");
+      const ptValEl = document.getElementById("ptVal");
+
+      const score2dEl = document.getElementById("score2d");
+      const bar2dEl = document.getElementById("bar2d");
+
+      const revealPanel = document.getElementById("revealPanel");
+      const stat3dEl = document.getElementById("stat3d");
+      const plotCanvas = document.getElementById("plot");
+      const planeEqEl = document.getElementById("planeEq");
+
+      // ---------- Colors ----------
+      const COLORS = {
+        A: [255, 204, 102],
+        B: [102, 217, 255],
+        bg0: "#0b0d12",
+
+        axisX: getComputedStyle(document.documentElement).getPropertyValue("--axisX").trim(),
+        axisY: getComputedStyle(document.documentElement).getPropertyValue("--axisY").trim(),
+        axisZ: getComputedStyle(document.documentElement).getPropertyValue("--axisZ").trim(),
+        axisDim: "rgba(255,255,255,0.12)",
+        grid: "rgba(255,255,255,0.08)",
+
+        planeFill: "rgba(255,255,255,0.06)",
+        planeStroke: "rgba(255,255,255,0.22)",
+        marginStroke: "rgba(255,255,255,0.16)"
+      };
+
+      swA.style.background = `rgba(${COLORS.A[0]},${COLORS.A[1]},${COLORS.A[2]},0.95)`;
+      swB.style.background = `rgba(${COLORS.B[0]},${COLORS.B[1]},${COLORS.B[2]},0.95)`;
+
+      // ---------- Tiny math kit ----------
+      const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
+      const lerp = (a,b,t) => a + (b-a)*t;
+
       const v3 = {
         add: (a,b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]],
         sub: (a,b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]],
@@ -152,7 +536,6 @@
           const vB = v3.normalize(b);
           const d = v3.dot(vA, vB);
           if (d < -0.999999) {
-            // 180°: pick any perpendicular axis
             const axis = v3.normalize(
               Math.abs(vA[0]) < 0.9 ? v3.cross(vA, [1,0,0]) : v3.cross(vA, [0,1,0])
             );
@@ -163,7 +546,6 @@
           return quat.normalize(q);
         },
         rotateVec3: (q, v) => {
-          // v' = v + w*t + cross(q.xyz, t), with t = 2*cross(q.xyz, v)
           const w = q[0], qx = q[1], qy = q[2], qz = q[3];
           const vx = v[0], vy = v[1], vz = v[2];
 
@@ -189,7 +571,7 @@
         return { e1, e2, n: nn };
       }
 
-      // --------- Deterministic RNG ----------
+      // ---------- Deterministic RNG ----------
       function mulberry32(seed) {
         let a = seed >>> 0;
         return function() {
@@ -200,14 +582,18 @@
         };
       }
       function randn(rng) {
-        // Box-Muller
         let u = 0, v = 0;
         while (u === 0) u = rng();
         while (v === 0) v = rng();
         return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
       }
+      function randnClamped(rng, sigma, maxAbs) {
+        let x;
+        do { x = randn(rng) * sigma; } while (Math.abs(x) > maxAbs);
+        return x;
+      }
 
-      // --------- Scenario generators ----------
+      // ---------- Scenarios ----------
       function genEasy(seed) {
         const rng = mulberry32(seed);
         const N = 560;
@@ -217,161 +603,111 @@
 
         const pts = [];
         for (let i = 0; i < N/2; i++) {
-          pts.push({
-            p: [
-              A[0] + randn(rng)*sigma,
-              A[1] + randn(rng)*sigma,
-              A[2] + randn(rng)*sigma
-            ],
-            c: 0
-          });
+          pts.push({ p: [A[0] + randn(rng)*sigma, A[1] + randn(rng)*sigma, A[2] + randn(rng)*sigma], c: 0 });
         }
         for (let i = 0; i < N/2; i++) {
-          pts.push({
-            p: [
-              B[0] + randn(rng)*sigma,
-              B[1] + randn(rng)*sigma,
-              B[2] + randn(rng)*sigma
-            ],
-            c: 1
-          });
+          pts.push({ p: [B[0] + randn(rng)*sigma, B[1] + randn(rng)*sigma, B[2] + randn(rng)*sigma], c: 1 });
         }
         return pts;
       }
 
-        function genHiddenLinearClumpy(seed) {
-        // Linearly separable sheets with continuous coverage,
-        // but with class-specific density texture in the plane.
+      function genHiddenLinear(seed) {
+        // Two parallel sheets, guaranteed separated by clamping thickness.
+        const rng = mulberry32(seed);
+        const N = 760;
+
+        const normal = v3.normalize([1.0, 1.0, 0.4]);
+        const { e1, e2, n } = basisFromNormal(normal);
+
+        const sheetHalfSize = 1.08;
+        const d = 0.48;
+        const thickness = 0.12;
+        const clampAbs = 0.22; // ensures no sheet-crossing outliers in practice
+
+        const pts = [];
+        for (let i = 0; i < N/2; i++) {
+          const u = (rng()*2 - 1) * sheetHalfSize;
+          const v = (rng()*2 - 1) * sheetHalfSize;
+          const w = randnClamped(rng, thickness, clampAbs);
+          const p = v3.add(v3.add(v3.scale(e1, u), v3.scale(e2, v)), v3.scale(n, (-d + w)));
+          pts.push({ p, c: 0 });
+        }
+        for (let i = 0; i < N/2; i++) {
+          const u = (rng()*2 - 1) * sheetHalfSize;
+          const v = (rng()*2 - 1) * sheetHalfSize;
+          const w = randnClamped(rng, thickness, clampAbs);
+          const p = v3.add(v3.add(v3.scale(e1, u), v3.scale(e2, v)), v3.scale(n, ( d + w)));
+          pts.push({ p, c: 1 });
+        }
+        return pts;
+      }
+
+      function genHiddenLinearClumpy(seed) {
+        // Still separable sheets, with in-plane density texture (misleading “clusters”).
         const rng = mulberry32(seed);
         const N = 1260;
 
         const normal = v3.normalize([1.0, 1.0, 0.4]);
         const { e1, e2, n } = basisFromNormal(normal);
 
-        // --- True linear separation knobs ---
-        const d = 0.45;
-        const thickness = 0.2;
+        const d = 0.50;
+        const thickness = 0.13;
+        const clampAbs = 0.20;
+        const halfSize = 1.45;
 
-        // --- Plane extent ---
-        const halfSize = 1.4;
+        const attractStrength = 0.95;
+        const attractProb = 0.95;
+        const attractSigma = 2.55;
 
-        // --- Texture knobs ---
-        const attractStrength = 0.95;   // how strongly points are pulled toward attractors
-        const attractProb = 0.95;       // fraction of points influenced by texture
-        const attractSigma = 2.55;      // spatial falloff of texture
-
-        // Class-specific attractors (in u,v plane)
         const attractA = [
-            [-0.8, -0.2],
-            [ 0.4,  0.9],
-            [ 0.9, -0.6]
+          [-0.8, -0.2], [ 0.4,  0.9], [ 0.9, -0.6]
         ];
-
         const attractB = [
-            [-0.6,  0.8],
-            [ 0.7,  0.2],
-            [-0.2, -0.9]
+          [-0.6,  0.8], [ 0.7,  0.2], [-0.2, -0.9]
         ];
 
         function texturedUV(attractors) {
-            let u = (rng() * 2 - 1) * halfSize;
-            let v = (rng() * 2 - 1) * halfSize;
+          let u = (rng() * 2 - 1) * halfSize;
+          let v = (rng() * 2 - 1) * halfSize;
 
-            if (rng() < attractProb) {
+          if (rng() < attractProb) {
             const a = attractors[Math.floor(rng() * attractors.length)];
             const du = a[0] - u;
             const dv = a[1] - v;
             const r2 = du*du + dv*dv;
-
-            // Smooth pull toward attractor
             const w = attractStrength * Math.exp(-r2 / (2 * attractSigma * attractSigma));
             u += du * w;
             v += dv * w;
-            }
-
-            return [u, v];
+          }
+          return [u, v];
         }
 
         const pts = [];
-
         for (let i = 0; i < N/2; i++) {
-            const [u, v] = texturedUV(attractA);
-            const w = randn(rng) * thickness;
-
-            const p = v3.add(
-            v3.add(v3.scale(e1, u), v3.scale(e2, v)),
-            v3.scale(n, -d + w)
-            );
-
-            pts.push({ p, c: 0 });
-        }
-
-        for (let i = 0; i < N/2; i++) {
-            const [u, v] = texturedUV(attractB);
-            const w = randn(rng) * thickness;
-
-            const p = v3.add(
-            v3.add(v3.scale(e1, u), v3.scale(e2, v)),
-            v3.scale(n, d + w)
-            );
-
-            pts.push({ p, c: 1 });
-        }
-
-        return pts;
-        }
-
-
-
-      function genHiddenLinear(seed) {
-        // Two big parallel sheets separated along an off-axis normal.
-        // Linearly separable, but from many views they look interleaved until you rotate "side-on".
-        const rng = mulberry32(seed);
-        const N = 700;
-
-        const normal = v3.normalize([1.0, 1.0, 0.4]);
-        const { e1, e2, n } = basisFromNormal(normal);
-
-        const sheetHalfSize = 1.05;
-        const d = 0.38;
-        const thickness = 0.15;
-
-        const pts = [];
-        for (let i = 0; i < N/2; i++) {
-          const u = (rng()*2 - 1) * sheetHalfSize;
-          const v = (rng()*2 - 1) * sheetHalfSize;
-          const w = randn(rng) * thickness;
-          const p = v3.add(
-            v3.add(v3.scale(e1, u), v3.scale(e2, v)),
-            v3.scale(n, (-d + w))
-          );
+          const [u,v] = texturedUV(attractA);
+          const w = randnClamped(rng, thickness, clampAbs);
+          const p = v3.add(v3.add(v3.scale(e1,u), v3.scale(e2,v)), v3.scale(n, (-d + w)));
           pts.push({ p, c: 0 });
         }
         for (let i = 0; i < N/2; i++) {
-          const u = (rng()*2 - 1) * sheetHalfSize;
-          const v = (rng()*2 - 1) * sheetHalfSize;
-          const w = randn(rng) * thickness;
-          const p = v3.add(
-            v3.add(v3.scale(e1, u), v3.scale(e2, v)),
-            v3.scale(n, (d + w))
-          );
+          const [u,v] = texturedUV(attractB);
+          const w = randnClamped(rng, thickness, clampAbs);
+          const p = v3.add(v3.add(v3.scale(e1,u), v3.scale(e2,v)), v3.scale(n, ( d + w)));
           pts.push({ p, c: 1 });
         }
         return pts;
       }
 
       function genNonlinearRing(seed) {
-        // Inner disk vs outer ring, living in a tilted plane (with a little thickness).
-        // Never linearly separable, but rotate until you "look at the plane" and you see the ring structure.
+        // Inner disk vs outer ring in a tilted plane. Not linearly separable.
         const rng = mulberry32(seed);
-        const N = 740;
+        const N = 820;
 
         const planeNormal = v3.normalize([0.2, 1.0, 0.55]);
         const { e1, e2, n } = basisFromNormal(planeNormal);
 
         const pts = [];
 
-        // Group A: inner disk
         for (let i = 0; i < N/2; i++) {
           const theta = rng() * Math.PI * 2;
           const r = Math.sqrt(rng()) * 0.58;
@@ -381,15 +717,10 @@
           const wobble = 0.25 * Math.sin(3 * theta);
           const thick = randn(rng) * 0.24;
 
-          const p = v3.add(
-            v3.add(v3.scale(e1, x), v3.scale(e2, y)),
-            v3.scale(n, wobble + thick)
-          );
-
+          const p = v3.add(v3.add(v3.scale(e1, x), v3.scale(e2, y)), v3.scale(n, wobble + thick));
           pts.push({ p, c: 0 });
         }
 
-        // Group B: outer ring
         for (let i = 0; i < N/2; i++) {
           const theta = rng() * Math.PI * 2;
           const r = 0.78 + rng() * 0.40;
@@ -397,13 +728,9 @@
           const y = r * Math.sin(theta);
 
           const wobble = 0.50 * Math.sin(3 * theta + 0.6);
-          const thick = randn(rng) * 0.04;
+          const thick = randn(rng) * 0.06;
 
-          const p = v3.add(
-            v3.add(v3.scale(e1, x), v3.scale(e2, y)),
-            v3.scale(n, wobble + thick)
-          );
-
+          const p = v3.add(v3.add(v3.scale(e1, x), v3.scale(e2, y)), v3.scale(n, wobble + thick));
           pts.push({ p, c: 1 });
         }
 
@@ -411,9 +738,9 @@
       }
 
       function genChaos(seed) {
-        // No structure: labels are independent of geometry.
+        // Geometry does not help.
         const rng = mulberry32(seed);
-        const N = 760;
+        const N = 820;
         const s = 1.15;
         const pts = [];
         for (let i = 0; i < N; i++) {
@@ -424,7 +751,6 @@
         return pts;
       }
 
-      // --------- Scenarios + initial views ----------
       function quatFromYawPitch(yaw, pitch) {
         const qy = quat.fromAxisAngle([0,1,0], yaw);
         const qx = quat.fromAxisAngle([1,0,0], pitch);
@@ -437,18 +763,20 @@
           name: "A. Linearly separable (obvious)",
           desc: "Two compact blobs. Most views still look cleanly split.",
           seed: 11,
+          truthLinear: true,
           make: genEasy,
           initRot: () => quatFromYawPitch(0.55, -0.35)
         },
         {
           id: "hidden",
           name: "B. Linearly separable (you must rotate to see it)",
-          desc: "Two parallel sheets separated by a plane, but the default view hides the gap. Rotate until the two layers peel apart.",
+          desc: "Two parallel sheets separated by a plane, but the default view hides the gap. Rotate until the layers peel apart.",
           seed: 23,
+          truthLinear: true,
           make: genHiddenLinear,
           initRot: () => {
             const n = v3.normalize([1.0, 1.0, 0.4]);
-            const alignToZ = quat.fromVectors(n, [0,0,1]); // hides separation in depth
+            const alignToZ = quat.fromVectors(n, [0,0,1]);
             const littleTwist = quat.fromAxisAngle([0,1,0], 0.18);
             return quat.normalize(quat.mul(littleTwist, alignToZ));
           }
@@ -456,12 +784,12 @@
         {
           id: "ring",
           name: "C. Not linearly separable (but curve-separable)",
-          desc: "Inner disk vs outer ring living in a tilted plane. No rotation makes a plane work, but the circular structure becomes obvious from the right angle.",
+          desc: "Inner disk vs outer ring in a tilted plane. No plane can split it, but the circular structure shows up from the right angle.",
           seed: 37,
+          truthLinear: false,
           make: genNonlinearRing,
           initRot: () => {
             const m = v3.normalize([0.2, 1.0, 0.55]);
-            // Start closer to edge-on so the ring is not immediately obvious.
             const target = v3.normalize([1.0, 0.0, 0.25]);
             const q = quat.fromVectors(m, target);
             const spice = quat.fromAxisAngle([0,0,1], -0.15);
@@ -473,58 +801,151 @@
           name: "D. Chaos (geometry does not help)",
           desc: "Positions are random and labels are random. Rotating only changes the shape of your illusions.",
           seed: 101,
+          truthLinear: false,
           make: genChaos,
           initRot: () => quatFromYawPitch(-0.35, -0.25)
         },
         {
-        id: "hidden_clumps",
-        name: "E. Linearly separable (misleading clusters)",
-        desc: "Two parallel sheets (still linearly separable), but with strong in-plane clusters that look like ‘structure’ from the wrong angles.",
-        seed: 59,
-        make: genHiddenLinearClumpy,
-        initRot: () => {
-            // Start in a view that hides the separation (normal roughly aligned with camera depth)
+          id: "hidden_clumps",
+          name: "E. Linearly separable (misleading clusters)",
+          desc: "Two separable sheets with strong in-plane clustering that can trick your pattern-finder from the wrong angles.",
+          seed: 59,
+          truthLinear: true,
+          make: genHiddenLinearClumpy,
+          initRot: () => {
             const n = v3.normalize([1.0, 1.0, 0.4]);
             const alignToZ = quat.fromVectors(n, [0,0,1]);
             const littleTwist = quat.fromAxisAngle([0,1,0], 0.22);
             return quat.normalize(quat.mul(littleTwist, alignToZ));
-        }
+          }
         },
-
       ];
 
-      // --------- App state ----------
-      const COLORS = {
-        A: "rgba(255, 204, 102, 0.95)",
-        B: "rgba(102, 217, 255, 0.95)",
-        bg: "#0b0d12",
+      // ---------- Simple linear methods (tiny, no libraries) ----------
+      function trainPerceptron(points, dims, maxEpochs = 60) {
+        let w = new Array(dims).fill(0);
+        let b = 0;
 
-        axisX: "rgba(255, 120, 120, 0.85)",
-        axisY: "rgba(120, 255, 170, 0.82)",
-        axisZ: "rgba(120, 170, 255, 0.82)",
-        axisDim: "rgba(255,255,255,0.12)",
-        text: "rgba(255,255,255,0.9)"
-      };
+        let converged = false;
+        let epochs = 0;
+        let totalMistakes = 0;
 
-      swA.style.background = COLORS.A;
-      swB.style.background = COLORS.B;
+        // deterministic order is fine for this toy
+        for (let ep = 0; ep < maxEpochs; ep++) {
+          let mistakes = 0;
+          for (let i = 0; i < points.length; i++) {
+            const x = points[i].p;
+            const y = points[i].c === 1 ? 1 : -1;
+            let s = b;
+            for (let d = 0; d < dims; d++) s += w[d] * x[d];
+            if (y * s <= 0) {
+              for (let d = 0; d < dims; d++) w[d] += y * x[d];
+              b += y;
+              mistakes++;
+            }
+          }
+          totalMistakes += mistakes;
+          epochs = ep + 1;
+          if (mistakes === 0) { converged = true; break; }
+        }
 
-      let points = [];
-      let rotQ = [1,0,0,0];
-
-      function setScenarioById(id) {
-        const sc = scenarios.find(s => s.id === id) || scenarios[0];
-        selectEl.value = sc.id;
-        descEl.textContent = sc.desc;
-        points = sc.make(sc.seed);
-        rotQ = sc.initRot();
-        requestRender();
+        return { w, b, converged, epochs, totalMistakes };
       }
 
-      // --------- Resize handling ----------
-      let cssW = 0, cssH = 0, dpr = 1;
+      function solveLinearSystem(A, b) {
+        // Gauss-Jordan elimination for small D (2 or 3)
+        const n = A.length;
+        const M = new Array(n);
+        for (let i = 0; i < n; i++) {
+          M[i] = A[i].slice();
+          M[i].push(b[i]);
+        }
 
-      function resize() {
+        for (let col = 0; col < n; col++) {
+          // pivot
+          let piv = col;
+          for (let r = col + 1; r < n; r++) {
+            if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r;
+          }
+          if (Math.abs(M[piv][col]) < 1e-10) return new Array(n).fill(0);
+
+          if (piv !== col) {
+            const tmp = M[col]; M[col] = M[piv]; M[piv] = tmp;
+          }
+
+          const div = M[col][col];
+          for (let c = col; c <= n; c++) M[col][c] /= div;
+
+          for (let r = 0; r < n; r++) {
+            if (r === col) continue;
+            const f = M[r][col];
+            for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
+          }
+        }
+
+        return M.map(row => row[n]);
+      }
+
+      function computeLDA(points, dims) {
+        const m0 = new Array(dims).fill(0);
+        const m1 = new Array(dims).fill(0);
+        let n0 = 0, n1 = 0;
+
+        for (const pt of points) {
+          const x = pt.p;
+          if (pt.c === 0) { n0++; for (let d = 0; d < dims; d++) m0[d] += x[d]; }
+          else { n1++; for (let d = 0; d < dims; d++) m1[d] += x[d]; }
+        }
+        for (let d = 0; d < dims; d++) {
+          m0[d] /= Math.max(1, n0);
+          m1[d] /= Math.max(1, n1);
+        }
+
+        // Within-class scatter
+        const Sw = new Array(dims).fill(0).map(() => new Array(dims).fill(0));
+        for (const pt of points) {
+          const x = pt.p;
+          const mu = pt.c === 0 ? m0 : m1;
+          const dx = new Array(dims);
+          for (let d = 0; d < dims; d++) dx[d] = x[d] - mu[d];
+          for (let i = 0; i < dims; i++) {
+            for (let j = 0; j < dims; j++) {
+              Sw[i][j] += dx[i] * dx[j];
+            }
+          }
+        }
+
+        // Regularize
+        const reg = 1e-2;
+        for (let d = 0; d < dims; d++) Sw[d][d] += reg;
+
+        const dm = new Array(dims);
+        for (let d = 0; d < dims; d++) dm[d] = m1[d] - m0[d];
+
+        const w = solveLinearSystem(Sw, dm);
+
+        // Bias: split means in projection space
+        let b = 0;
+        for (let d = 0; d < dims; d++) b -= 0.5 * w[d] * (m0[d] + m1[d]);
+
+        // Accuracy
+        let correct = 0;
+        for (const pt of points) {
+          const x = pt.p;
+          let s = b;
+          for (let d = 0; d < dims; d++) s += w[d] * x[d];
+          const pred = s > 0 ? 1 : 0;
+          if (pred === pt.c) correct++;
+        }
+
+        return { w, b, acc: correct / Math.max(1, points.length), m0, m1 };
+      }
+
+      // ---------- Projection & drawing ----------
+      let cssW = 0, cssH = 0, dpr = 1;
+      let bgGrad = null;
+
+      function resizeMain() {
         const rect = canvas.getBoundingClientRect();
         cssW = Math.max(1, rect.width);
         cssH = Math.max(1, rect.height);
@@ -537,14 +958,514 @@
           canvas.width = w;
           canvas.height = h;
         }
-        // Draw in CSS pixel coordinates
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // background gradient (cache)
+        bgGrad = ctx.createRadialGradient(cssW*0.55, cssH*0.35, 40, cssW*0.55, cssH*0.35, Math.max(cssW, cssH)*0.80);
+        bgGrad.addColorStop(0, "#0f1320");
+        bgGrad.addColorStop(1, "#0b0d12");
+      }
+
+      window.addEventListener("resize", () => requestRender());
+
+      function project(v, camDist, focal, worldScale, cx, cy) {
+        const z = v[2] + camDist;
+        const k = focal / z;
+        return { x: v[0] * k * worldScale + cx, y: -v[1] * k * worldScale + cy, k, z };
+      }
+
+      function drawAxes(camDist, focal, worldScale, cx, cy) {
+        const L = 1.40;
+        const axes = [
+          { a: [-L,0,0], b: [ L,0,0], col: COLORS.axisX, label: "x", labPos: [ L,0,0] },
+          { a: [0,-L,0], b: [0, L,0], col: COLORS.axisY, label: "y", labPos: [0, L,0] },
+          { a: [0,0,-L], b: [0,0, L], col: COLORS.axisZ, label: "z", labPos: [0,0, L] },
+        ];
+
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = COLORS.axisDim;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2.2, 0, Math.PI*2);
+        ctx.stroke();
+
+        for (const ax of axes) {
+          const ra = quat.rotateVec3(rotQ, ax.a);
+          const rb = quat.rotateVec3(rotQ, ax.b);
+          const pa = project(ra, camDist, focal, worldScale, cx, cy);
+          const pb = project(rb, camDist, focal, worldScale, cx, cy);
+
+          ctx.lineWidth = 1.25;
+          ctx.strokeStyle = ax.col;
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.stroke();
+
+          const rl = quat.rotateVec3(rotQ, ax.labPos);
+          const pl = project(rl, camDist, focal, worldScale, cx, cy);
+          ctx.fillStyle = ax.col;
+          ctx.font = "12px ui-sans-serif, system-ui";
+          ctx.fillText(ax.label, pl.x + 6, pl.y - 6);
+        }
+      }
+
+      function drawGrid(camDist, focal, worldScale, cx, cy) {
+        const L = 1.40;
+        const step = 0.20;
+
+        ctx.lineWidth = 1;
+        for (let t = -L; t <= L + 1e-6; t += step) {
+          const major = Math.abs((t / 0.40) - Math.round(t / 0.40)) < 1e-6;
+          ctx.strokeStyle = major ? "rgba(255,255,255,0.10)" : COLORS.grid;
+
+          // horizontal in XY plane (z=0): x from -L..L at y=t
+          {
+            const a = quat.rotateVec3(rotQ, [-L, t, 0]);
+            const b = quat.rotateVec3(rotQ, [ L, t, 0]);
+            const pa = project(a, camDist, focal, worldScale, cx, cy);
+            const pb = project(b, camDist, focal, worldScale, cx, cy);
+
+            ctx.beginPath();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.stroke();
+          }
+          // vertical in XY plane (z=0): y from -L..L at x=t
+          {
+            const a = quat.rotateVec3(rotQ, [t, -L, 0]);
+            const b = quat.rotateVec3(rotQ, [t,  L, 0]);
+            const pa = project(a, camDist, focal, worldScale, cx, cy);
+            const pb = project(b, camDist, focal, worldScale, cx, cy);
+
+            ctx.beginPath();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      function drawPlaneOverlay(camDist, focal, worldScale, cx, cy) {
+        if (!teachMode) return;
+        if (!showPlane) return;
+        if (!model3D || !model3D.display) return;
+
+        const w = model3D.display.w;
+        const b = model3D.display.b;
+        const ww = v3.dot(w,w);
+        if (ww < 1e-10) return;
+
+        const n = v3.normalize(w);
+        const { e1, e2 } = basisFromNormal(n);
+        const L = (model3D.boundRadius || 1.4) * 1.35;
+
+        // point on plane closest to origin
+        const x0 = v3.scale(w, -b / ww);
+
+        const corners = [
+          v3.add(v3.add(x0, v3.scale(e1,  L)), v3.scale(e2,  L)),
+          v3.add(v3.add(x0, v3.scale(e1, -L)), v3.scale(e2,  L)),
+          v3.add(v3.add(x0, v3.scale(e1, -L)), v3.scale(e2, -L)),
+          v3.add(v3.add(x0, v3.scale(e1,  L)), v3.scale(e2, -L)),
+        ];
+
+        function drawQuad(centerOffsetDist, strokeStyle, fillStyle, dash = null) {
+          const offs = v3.scale(n, centerOffsetDist);
+          const pts2 = corners.map(p => {
+            const pr = quat.rotateVec3(rotQ, v3.add(p, offs));
+            return project(pr, camDist, focal, worldScale, cx, cy);
+          });
+
+          ctx.save();
+          if (dash) ctx.setLineDash(dash);
+          ctx.beginPath();
+          ctx.moveTo(pts2[0].x, pts2[0].y);
+          for (let i = 1; i < pts2.length; i++) ctx.lineTo(pts2[i].x, pts2[i].y);
+          ctx.closePath();
+
+          if (fillStyle) {
+            ctx.fillStyle = fillStyle;
+            ctx.fill();
+          }
+          ctx.lineWidth = 1.1;
+          ctx.strokeStyle = strokeStyle;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // main plane
+        drawQuad(0, COLORS.planeStroke, COLORS.planeFill);
+
+        // margin band (only if perceptron actually found a perfect separator)
+        if (showMargin && model3D.perceptron && model3D.perceptron.converged) {
+          const m = model3D.marginDist || 0;
+          if (m > 1e-4) {
+            drawQuad( m, COLORS.marginStroke, null, [5,4]);
+            drawQuad(-m, COLORS.marginStroke, null, [5,4]);
+          }
+        }
+
+        // normal arrow
+        const a0 = quat.rotateVec3(rotQ, x0);
+        const a1 = quat.rotateVec3(rotQ, v3.add(x0, v3.scale(n, 0.65)));
+        const p0 = project(a0, camDist, focal, worldScale, cx, cy);
+        const p1 = project(a1, camDist, focal, worldScale, cx, cy);
+
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+
+        // arrowhead
+        const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+        const ah = 8;
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p1.x - ah*Math.cos(ang - 0.45), p1.y - ah*Math.sin(ang - 0.45));
+        ctx.lineTo(p1.x - ah*Math.cos(ang + 0.45), p1.y - ah*Math.sin(ang + 0.45));
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // ---------- Plot (distance histogram) ----------
+      function resizePlot() {
+        const rect = plotCanvas.getBoundingClientRect();
+        const w = Math.max(1, Math.round(rect.width * (window.devicePixelRatio || 1)));
+        const h = Math.max(1, Math.round(rect.height * (window.devicePixelRatio || 1)));
+        if (plotCanvas.width !== w || plotCanvas.height !== h) {
+          plotCanvas.width = w;
+          plotCanvas.height = h;
+        }
+      }
+
+      function drawDistancePlot() {
+        if (!model3D || !model3D.display) return;
+        resizePlot();
+        const pctx = plotCanvas.getContext("2d");
+
+        const W = plotCanvas.width;
+        const H = plotCanvas.height;
+
+        // background
+        pctx.clearRect(0,0,W,H);
+        pctx.fillStyle = "rgba(14,16,24,0.70)";
+        pctx.fillRect(0,0,W,H);
+
+        const pad = 10 * (window.devicePixelRatio || 1);
+        const innerW = W - 2*pad;
+        const innerH = H - 2*pad;
+
+        const dA = model3D.distA;
+        const dB = model3D.distB;
+        if (!dA || !dB || dA.length === 0 || dB.length === 0) return;
+
+        // range
+        let minD = Infinity, maxD = -Infinity;
+        for (const v of dA) { if (v < minD) minD = v; if (v > maxD) maxD = v; }
+        for (const v of dB) { if (v < minD) minD = v; if (v > maxD) maxD = v; }
+
+        // expand slightly
+        const span = Math.max(1e-6, maxD - minD);
+        minD -= span * 0.08;
+        maxD += span * 0.08;
+
+        const bins = 34;
+        const hA = new Array(bins).fill(0);
+        const hB = new Array(bins).fill(0);
+
+        function binOf(x) {
+          const t = (x - minD) / (maxD - minD);
+          return clamp(Math.floor(t * bins), 0, bins - 1);
+        }
+
+        for (const v of dA) hA[binOf(v)]++;
+        for (const v of dB) hB[binOf(v)]++;
+
+        const maxC = Math.max(...hA, ...hB, 1);
+
+        // axes baseline
+        pctx.strokeStyle = "rgba(255,255,255,0.14)";
+        pctx.lineWidth = 1;
+        pctx.beginPath();
+        pctx.moveTo(pad, pad + innerH);
+        pctx.lineTo(pad + innerW, pad + innerH);
+        pctx.stroke();
+
+        // zero line
+        const xZero = pad + innerW * ((0 - minD) / (maxD - minD));
+        pctx.strokeStyle = "rgba(255,255,255,0.18)";
+        pctx.beginPath();
+        pctx.moveTo(xZero, pad);
+        pctx.lineTo(xZero, pad + innerH);
+        pctx.stroke();
+
+        // label
+        pctx.fillStyle = "rgba(255,255,255,0.62)";
+        pctx.font = `${11 * (window.devicePixelRatio || 1)}px ui-sans-serif, system-ui`;
+        pctx.fillText("Signed distance to best plane", pad, pad + 12 * (window.devicePixelRatio || 1));
+
+        // bars
+        const bw = innerW / bins;
+
+        function rgba(rgb, a) { return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`; }
+
+        for (let i = 0; i < bins; i++) {
+          const x = pad + i*bw;
+          const aH = (hA[i] / maxC) * (innerH * 0.78);
+          const bH = (hB[i] / maxC) * (innerH * 0.78);
+
+          // A
+          pctx.fillStyle = rgba(COLORS.A, 0.55);
+          pctx.fillRect(x, pad + innerH - aH, bw - 1, aH);
+
+          // B (overlay)
+          pctx.fillStyle = rgba(COLORS.B, 0.55);
+          pctx.fillRect(x, pad + innerH - bH, bw - 1, bH);
+        }
+
+        // tiny legend
+        const lx = pad;
+        const ly = pad + innerH - 16 * (window.devicePixelRatio || 1);
+        pctx.fillStyle = rgba(COLORS.A, 0.85);
+        pctx.fillRect(lx, ly, 10*(window.devicePixelRatio||1), 6*(window.devicePixelRatio||1));
+        pctx.fillStyle = rgba(COLORS.B, 0.85);
+        pctx.fillRect(lx + 52*(window.devicePixelRatio||1), ly, 10*(window.devicePixelRatio||1), 6*(window.devicePixelRatio||1));
+        pctx.fillStyle = "rgba(255,255,255,0.70)";
+        pctx.fillText("A", lx + 14*(window.devicePixelRatio||1), ly + 7*(window.devicePixelRatio||1));
+        pctx.fillText("B", lx + 66*(window.devicePixelRatio||1), ly + 7*(window.devicePixelRatio||1));
+      }
+
+      // ---------- App state ----------
+      let points = [];
+      let rotQ = [1,0,0,0];
+
+      let currentScenario = scenarios[0];
+      let currentSeed = currentScenario.seed;
+
+      let model3D = null;
+
+      let teachMode = true;
+      let showPlane = false;
+      let showMargin = false;
+      let showGrid = true;
+      let autoRotate = false;
+      let revealTruth = false;
+
+      let camDist = parseFloat(zoomEl.value);
+      let basePointR = parseFloat(ptSizeEl.value);
+
+      // ---------- 3D model computation ----------
+      function computeBoundRadius() {
+        let r = 0;
+        for (const pt of points) {
+          const p = pt.p;
+          const n = Math.sqrt(p[0]*p[0] + p[1]*p[1] + p[2]*p[2]);
+          if (n > r) r = n;
+        }
+        return Math.max(1.2, r);
+      }
+
+      function compute3DModel() {
+        const perceptron = trainPerceptron(points, 3, 70);
+        const lda = computeLDA(points, 3);
+
+        const display = perceptron.converged ? { w: perceptron.w.slice(), b: perceptron.b, method: "Perceptron" }
+                                            : { w: lda.w.slice(), b: lda.b, method: "LDA" };
+
+        const wn = v3.norm(display.w) || 1;
+
+        let correct = 0;
+        let marginDist = Infinity;
+        const distA = [];
+        const distB = [];
+
+        for (const pt of points) {
+          const p = pt.p;
+          const s = display.w[0]*p[0] + display.w[1]*p[1] + display.w[2]*p[2] + display.b;
+          const pred = s > 0 ? 1 : 0;
+          if (pred === pt.c) correct++;
+
+          const d = s / wn;
+          if (pt.c === 0) distA.push(d);
+          else distB.push(d);
+
+          const y = pt.c === 1 ? 1 : -1;
+          const md = y * d;
+          if (md < marginDist) marginDist = md;
+        }
+
+        model3D = {
+          perceptron,
+          lda,
+          display,
+          acc: correct / Math.max(1, points.length),
+          marginDist: perceptron.converged ? Math.max(0, marginDist) : 0,
+          distA, distB,
+          boundRadius: computeBoundRadius()
+        };
+      }
+
+      // ---------- 2D view score (LDA on rotated XY) ----------
+      let last2DUpdate = 0;
+      let view2DAcc = 0;
+
+      function compute2DViewScore() {
+        // features: rotated x,y (camera-aligned), ignore z
+        const feats = new Array(points.length);
+        for (let i = 0; i < points.length; i++) {
+          const pr = quat.rotateVec3(rotQ, points[i].p);
+          feats[i] = [pr[0], pr[1], points[i].c];
+        }
+
+        // means
+        let m0x=0,m0y=0,m1x=0,m1y=0,n0=0,n1=0;
+        for (const f of feats) {
+          if (f[2] === 0) { n0++; m0x += f[0]; m0y += f[1]; }
+          else { n1++; m1x += f[0]; m1y += f[1]; }
+        }
+        n0 = Math.max(1, n0); n1 = Math.max(1, n1);
+        m0x/=n0; m0y/=n0; m1x/=n1; m1y/=n1;
+
+        // within scatter Sw (2x2)
+        let s00=0,s01=0,s11=0;
+        for (const f of feats) {
+          const muX = f[2] === 0 ? m0x : m1x;
+          const muY = f[2] === 0 ? m0y : m1y;
+          const dx = f[0]-muX;
+          const dy = f[1]-muY;
+          s00 += dx*dx;
+          s01 += dx*dy;
+          s11 += dy*dy;
+        }
+        const reg = 1e-2;
+        s00 += reg; s11 += reg;
+
+        // solve for w = inv(Sw)*(m1-m0)
+        const det = s00*s11 - s01*s01;
+        let wx=0, wy=0;
+        if (Math.abs(det) > 1e-10) {
+          const inv00 =  s11/det;
+          const inv01 = -s01/det;
+          const inv11 =  s00/det;
+          const dmX = m1x - m0x;
+          const dmY = m1y - m0y;
+          wx = inv00*dmX + inv01*dmY;
+          wy = inv01*dmX + inv11*dmY;
+        }
+
+        const b = -0.5 * (wx*(m0x+m1x) + wy*(m0y+m1y));
+
+        let correct = 0;
+        for (const f of feats) {
+          const s = wx*f[0] + wy*f[1] + b;
+          const pred = s > 0 ? 1 : 0;
+          if (pred === f[2]) correct++;
+        }
+        view2DAcc = correct / Math.max(1, feats.length);
+      }
+
+      function update2DScoreUI() {
+        const pct = clamp(Math.round(view2DAcc * 100), 0, 100);
+        score2dEl.textContent = `${pct}%`;
+        bar2dEl.style.width = `${pct}%`;
+      }
+
+      // ---------- UI helpers ----------
+      function fmt(x, k=2) {
+        const p = Math.pow(10, k);
+        return (Math.round(x*p)/p).toFixed(k);
+      }
+
+      function updateRevealPanel() {
+        const show = teachMode && (revealTruth || showPlane);
+        revealPanel.classList.toggle("hidden", !show);
+        if (!show) return;
+
+        const scTruth = currentScenario.truthLinear ? "yes" : "no";
+        const perc = model3D?.perceptron;
+        const found = perc?.converged ? "yes" : "no";
+        const method = model3D?.display?.method || "—";
+        const acc = model3D ? Math.round(model3D.acc * 100) : 0;
+
+        const marginTxt = (perc && perc.converged) ? `Min margin (distance): ${fmt(model3D.marginDist, 3)}` : `Min margin: n/a`;
+
+        let line1 = "";
+        if (revealTruth) {
+          line1 += `Ground truth linearly separable: ${scTruth}. `;
+        } else {
+          line1 += `3D linear probe (best plane): `;
+        }
+
+        const line2 = `Perceptron found a perfect plane: ${found} (epochs: ${perc ? perc.epochs : "—"}). Best-plane accuracy: ${acc}%.`;
+
+        stat3dEl.textContent = `${line1}${line2} ${marginTxt}`;
+
+        // plane equation (normalized normal for readability)
+        if (model3D && model3D.display) {
+          const w = model3D.display.w.slice();
+          const wn = v3.norm(w) || 1;
+          const n = [w[0]/wn, w[1]/wn, w[2]/wn];
+          const b = model3D.display.b / wn;
+          planeEqEl.textContent =
+            `Plane (normalized): n·x + b = 0,  n = (${fmt(n[0])}, ${fmt(n[1])}, ${fmt(n[2])}),  b = ${fmt(b)}` +
+            `  [method: ${method}]`;
+        }
+
+        drawDistancePlot();
+      }
+
+      // ---------- Scenario switching ----------
+      for (const sc of scenarios) {
+        const opt = document.createElement("option");
+        opt.value = sc.id;
+        opt.textContent = sc.name;
+        selectEl.appendChild(opt);
+      }
+
+      function setScenarioById(id) {
+        const sc = scenarios.find(s => s.id === id) || scenarios[0];
+        currentScenario = sc;
+        currentSeed = sc.seed;
+
+        selectEl.value = sc.id;
+        descEl.textContent = sc.desc;
+
+        points = sc.make(currentSeed);
+        rotQ = sc.initRot();
+
+        camDist = parseFloat(zoomEl.value);
+        basePointR = parseFloat(ptSizeEl.value);
+
+        compute3DModel();
+        updateRevealPanel();
         requestRender();
       }
 
-      window.addEventListener("resize", resize);
+      function newSample() {
+        // deterministic seed walk
+        currentSeed = ((currentSeed * 1664525) + 1013904223) >>> 0;
+        points = currentScenario.make(currentSeed);
+        compute3DModel();
+        updateRevealPanel();
+        requestRender();
+      }
 
-      // --------- Arcball rotation (click-drag) ----------
+      function resetView() {
+        rotQ = currentScenario.initRot();
+        zoomEl.value = "3.40";
+        ptSizeEl.value = "3.00";
+        camDist = parseFloat(zoomEl.value);
+        basePointR = parseFloat(ptSizeEl.value);
+        zoomValEl.textContent = fmt(camDist, 2);
+        ptValEl.textContent = fmt(basePointR, 2);
+
+        requestRender();
+      }
+
+      // ---------- Arcball rotation ----------
       let dragging = false;
       let lastArc = [0,0,1];
 
@@ -559,7 +1480,7 @@
 
         let nx = (x - cx) / r;
         let ny = (y - cy) / r;
-        ny = -ny; // flip so up is positive
+        ny = -ny;
 
         const d = nx*nx + ny*ny;
         let nz;
@@ -589,132 +1510,193 @@
         requestRender();
       });
 
-      function endDrag() {
-        dragging = false;
-      }
+      function endDrag() { dragging = false; }
       canvas.addEventListener("pointerup", endDrag);
       canvas.addEventListener("pointercancel", endDrag);
       canvas.addEventListener("pointerleave", endDrag);
 
-      // --------- Render ----------
-      let rafPending = false;
+      canvas.addEventListener("dblclick", () => resetView());
+
+      // wheel zoom
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        camDist = clamp(camDist + e.deltaY * 0.0022, parseFloat(zoomEl.min), parseFloat(zoomEl.max));
+        zoomEl.value = camDist.toFixed(2);
+        zoomValEl.textContent = fmt(camDist, 2);
+        requestRender();
+      }, { passive: false });
+
+      // ---------- UI wiring ----------
+      selectEl.addEventListener("change", () => setScenarioById(selectEl.value));
+      resetBtn.addEventListener("click", resetView);
+      newBtn.addEventListener("click", newSample);
+
+      function refreshTeachVisibility() {
+        teachMode = teachEl.checked;
+        teachPanel.classList.toggle("hidden", !teachMode);
+        requestRender();
+        updateRevealPanel();
+      }
+
+      teachEl.addEventListener("change", refreshTeachVisibility);
+
+      showPlaneEl.addEventListener("change", () => {
+        showPlane = showPlaneEl.checked;
+        updateRevealPanel();
+        requestRender();
+      });
+      showMarginEl.addEventListener("change", () => {
+        showMargin = showMarginEl.checked;
+        requestRender();
+      });
+      showGridEl.addEventListener("change", () => {
+        showGrid = showGridEl.checked;
+        requestRender();
+      });
+      autoRotateEl.addEventListener("change", () => {
+        autoRotate = autoRotateEl.checked;
+        requestRender();
+      });
+      revealTruthEl.addEventListener("change", () => {
+        revealTruth = revealTruthEl.checked;
+        updateRevealPanel();
+        requestRender();
+      });
+
+      zoomEl.addEventListener("input", () => {
+        camDist = parseFloat(zoomEl.value);
+        zoomValEl.textContent = fmt(camDist, 2);
+        requestRender();
+      });
+
+      ptSizeEl.addEventListener("input", () => {
+        basePointR = parseFloat(ptSizeEl.value);
+        ptValEl.textContent = fmt(basePointR, 2);
+        requestRender();
+      });
+
+      // ---------- Render loop ----------
+      let animating = false;
+      let needsDraw = true;
 
       function requestRender() {
-        if (rafPending) return;
-        rafPending = true;
-        requestAnimationFrame(draw);
-      }
-
-      function project(v, camDist, focal, worldScale, cx, cy) {
-        const z = v[2] + camDist;
-        const k = focal / z;
-        return { x: v[0] * k * worldScale + cx, y: -v[1] * k * worldScale + cy, k, z };
-      }
-
-      function drawAxes(camDist, focal, worldScale, cx, cy) {
-        const L = 1.38;
-        const axes = [
-          { a: [-L,0,0], b: [ L,0,0], col: COLORS.axisX, label: "x", labPos: [ L,0,0] },
-          { a: [0,-L,0], b: [0, L,0], col: COLORS.axisY, label: "y", labPos: [0, L,0] },
-          { a: [0,0,-L], b: [0,0, L], col: COLORS.axisZ, label: "z", labPos: [0,0, L] },
-        ];
-
-        // Dim crosshair at origin for a tiny depth cue
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = COLORS.axisDim;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 2.2, 0, Math.PI*2);
-        ctx.stroke();
-
-        for (const ax of axes) {
-          const ra = quat.rotateVec3(rotQ, ax.a);
-          const rb = quat.rotateVec3(rotQ, ax.b);
-          const pa = project(ra, camDist, focal, worldScale, cx, cy);
-          const pb = project(rb, camDist, focal, worldScale, cx, cy);
-
-          ctx.lineWidth = 1.25;
-          ctx.strokeStyle = ax.col;
-          ctx.beginPath();
-          ctx.moveTo(pa.x, pa.y);
-          ctx.lineTo(pb.x, pb.y);
-          ctx.stroke();
-
-          // Label near positive end
-          const rl = quat.rotateVec3(rotQ, ax.labPos);
-          const pl = project(rl, camDist, focal, worldScale, cx, cy);
-          ctx.fillStyle = ax.col;
-          ctx.font = "12px ui-sans-serif, system-ui";
-          ctx.fillText(ax.label, pl.x + 6, pl.y - 6);
+        needsDraw = true;
+        if (!animating) {
+          animating = true;
+          requestAnimationFrame(loop);
         }
       }
 
-      function draw() {
-        rafPending = false;
-        resize();
+      function loop(t) {
+        // auto rotate
+        if (autoRotate && !dragging) {
+          const dq = quat.fromAxisAngle([0,1,0], 0.006);
+          rotQ = quat.normalize(quat.mul(dq, rotQ));
+          needsDraw = true;
+        }
 
-        // Background
-        ctx.fillStyle = COLORS.bg;
-        ctx.fillRect(0, 0, cssW, cssH);
+        // update 2D score at a friendly cadence
+        if (teachMode && (t - last2DUpdate) > 120) {
+          compute2DViewScore();
+          update2DScoreUI();
+          last2DUpdate = t;
+        }
+
+        if (needsDraw) {
+          draw();
+          needsDraw = false;
+        }
+
+        if (autoRotate || dragging) {
+          requestAnimationFrame(loop);
+        } else {
+          animating = false;
+        }
+      }
+
+      function rgba(rgb, a) {
+        return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+      }
+
+      function draw() {
+        resizeMain();
 
         const cx = cssW / 2;
         const cy = cssH / 2;
 
-        // Camera and projection params
-        const camDist = 3.4;
+        // Camera & projection
         const focal = 1.9;
         const worldScale = 0.92 * Math.min(cssW, cssH) / 2;
 
-        // Axes first (behind points)
+        // Background
+        ctx.fillStyle = bgGrad || COLORS.bg0;
+        ctx.fillRect(0, 0, cssW, cssH);
+
+        // Grid and axes
+        if (teachMode && showGrid) drawGrid(camDist, focal, worldScale, cx, cy);
         drawAxes(camDist, focal, worldScale, cx, cy);
 
+        // Plane overlay (draw behind points)
+        drawPlaneOverlay(camDist, focal, worldScale, cx, cy);
+
         // Rotate, project, depth sort points
-        const baseR = 3.0;
         const renderPts = new Array(points.length);
+        let zMin = Infinity, zMax = -Infinity;
 
         for (let i = 0; i < points.length; i++) {
           const pr = quat.rotateVec3(rotQ, points[i].p);
           const pj = project(pr, camDist, focal, worldScale, cx, cy);
-          renderPts[i] = {
-            x: pj.x,
-            y: pj.y,
-            z: pj.z,
-            k: pj.k,
-            c: points[i].c
-          };
+          renderPts[i] = { x: pj.x, y: pj.y, z: pj.z, k: pj.k, c: points[i].c };
+          if (pj.z < zMin) zMin = pj.z;
+          if (pj.z > zMax) zMax = pj.z;
         }
 
         renderPts.sort((a,b) => b.z - a.z); // far to near
 
-        // Points
+        const zSpan = Math.max(1e-6, zMax - zMin);
+
         for (const p of renderPts) {
-          const r = Math.max(1.1, Math.min(6.2, baseR * p.k));
+          const r = Math.max(1.05, Math.min(7.0, basePointR * p.k));
 
+          // depth fog: far points fade a bit
+          const t = (p.z - zMin) / zSpan;     // 0 near, 1 far (after sort far->near but ok)
+          const fog = lerp(1.0, 0.40, clamp(t, 0, 1));
+          const baseAlpha = 0.92 * fog;
+
+          const rgb = (p.c === 0) ? COLORS.A : COLORS.B;
+
+          // gentle glow
           ctx.beginPath();
-          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-
-          ctx.fillStyle = (p.c === 0) ? COLORS.A : COLORS.B;
+          ctx.arc(p.x, p.y, r*1.9, 0, Math.PI*2);
+          ctx.fillStyle = rgba(rgb, baseAlpha * 0.11);
           ctx.fill();
 
-          // subtle outline for readability
-          ctx.lineWidth = 0.6;
-          ctx.strokeStyle = "rgba(0,0,0,0.28)";
+          // main dot
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+          ctx.fillStyle = rgba(rgb, baseAlpha);
+          ctx.fill();
+
+          // subtle outline
+          ctx.lineWidth = 0.7;
+          ctx.strokeStyle = "rgba(0,0,0,0.26)";
           ctx.stroke();
         }
       }
 
-      // --------- UI wiring ----------
-      for (const sc of scenarios) {
-        const opt = document.createElement("option");
-        opt.value = sc.id;
-        opt.textContent = sc.name;
-        selectEl.appendChild(opt);
-      }
+      // ---------- Boot ----------
+      zoomValEl.textContent = fmt(parseFloat(zoomEl.value), 2);
+      ptValEl.textContent = fmt(parseFloat(ptSizeEl.value), 2);
 
-      selectEl.addEventListener("change", () => setScenarioById(selectEl.value));
+      teachMode = teachEl.checked;
+      showPlane = showPlaneEl.checked;
+      showMargin = showMarginEl.checked;
+      showGrid = showGridEl.checked;
+      autoRotate = autoRotateEl.checked;
+      revealTruth = revealTruthEl.checked;
 
-      // Boot
       setScenarioById("easy");
-      resize();
+      refreshTeachVisibility();
       requestRender();
     })();
   </script>
