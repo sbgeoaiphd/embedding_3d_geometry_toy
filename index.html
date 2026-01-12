@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>3D Separability Toy</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #0b0d12;
+      color: rgba(255,255,255,0.92);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    #wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: grab;
+    }
+    canvas:active { cursor: grabbing; }
+
+    #ui {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      width: min(460px, calc(100vw - 24px));
+      background: rgba(0,0,0,0.36);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 14px;
+      padding: 10px 12px 11px;
+      backdrop-filter: blur(7px);
+      -webkit-backdrop-filter: blur(7px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    }
+    #title {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.2px;
+      margin-bottom: 8px;
+      opacity: 0.95;
+    }
+    select {
+      width: 100%;
+      font-size: 14px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(14,16,24,0.9);
+      color: rgba(255,255,255,0.92);
+      outline: none;
+    }
+    #desc {
+      margin-top: 9px;
+      font-size: 13px;
+      line-height: 1.35;
+      opacity: 0.9;
+    }
+    #hint {
+      margin-top: 7px;
+      font-size: 12px;
+      opacity: 0.72;
+    }
+    #legend {
+      margin-top: 7px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-right: 6px;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="c"></canvas>
+
+    <div id="ui">
+      <div id="title">3D separability toy</div>
+      <select id="scenario"></select>
+      <div id="desc"></div>
+      <div id="legend">
+        <span><span class="swatch" id="swA"></span>Group A</span>
+        <span><span class="swatch" id="swB"></span>Group B</span>
+      </div>
+      <div id="hint">Drag to rotate the entire coordinate frame. No plane, no hints, just vibes.</div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d", { alpha: false });
+
+      const selectEl = document.getElementById("scenario");
+      const descEl = document.getElementById("desc");
+      const swA = document.getElementById("swA");
+      const swB = document.getElementById("swB");
+
+      // --------- Tiny math kit ----------
+      const v3 = {
+        add: (a,b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]],
+        sub: (a,b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]],
+        scale: (a,s) => [a[0]*s, a[1]*s, a[2]*s],
+        dot: (a,b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2],
+        cross: (a,b) => [
+          a[1]*b[2] - a[2]*b[1],
+          a[2]*b[0] - a[0]*b[2],
+          a[0]*b[1] - a[1]*b[0]
+        ],
+        norm: (a) => Math.sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]),
+        normalize: (a) => {
+          const n = Math.sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]) || 1;
+          return [a[0]/n, a[1]/n, a[2]/n];
+        }
+      };
+
+      // Quaternion format: [w, x, y, z]
+      const quat = {
+        normalize: (q) => {
+          const n = Math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]) || 1;
+          return [q[0]/n, q[1]/n, q[2]/n, q[3]/n];
+        },
+        mul: (a,b) => ([
+          a[0]*b[0] - a[1]*b[1] - a[2]*b[2] - a[3]*b[3],
+          a[0]*b[1] + a[1]*b[0] + a[2]*b[3] - a[3]*b[2],
+          a[0]*b[2] - a[1]*b[3] + a[2]*b[0] + a[3]*b[1],
+          a[0]*b[3] + a[1]*b[2] - a[2]*b[1] + a[3]*b[0]
+        ]),
+        fromAxisAngle: (axis, angle) => {
+          const a = v3.normalize(axis);
+          const s = Math.sin(angle/2);
+          return [Math.cos(angle/2), a[0]*s, a[1]*s, a[2]*s];
+        },
+        fromVectors: (a, b) => {
+          const vA = v3.normalize(a);
+          const vB = v3.normalize(b);
+          const d = v3.dot(vA, vB);
+          if (d < -0.999999) {
+            // 180°: pick any perpendicular axis
+            const axis = v3.normalize(
+              Math.abs(vA[0]) < 0.9 ? v3.cross(vA, [1,0,0]) : v3.cross(vA, [0,1,0])
+            );
+            return [0, axis[0], axis[1], axis[2]];
+          }
+          const c = v3.cross(vA, vB);
+          const q = [1 + d, c[0], c[1], c[2]];
+          return quat.normalize(q);
+        },
+        rotateVec3: (q, v) => {
+          // v' = v + w*t + cross(q.xyz, t), with t = 2*cross(q.xyz, v)
+          const w = q[0], qx = q[1], qy = q[2], qz = q[3];
+          const vx = v[0], vy = v[1], vz = v[2];
+
+          const tx = 2 * (qy*vz - qz*vy);
+          const ty = 2 * (qz*vx - qx*vz);
+          const tz = 2 * (qx*vy - qy*vx);
+
+          return [
+            vx + w*tx + (qy*tz - qz*ty),
+            vy + w*ty + (qz*tx - qx*tz),
+            vz + w*tz + (qx*ty - qy*tx),
+          ];
+        }
+      };
+
+      function basisFromNormal(n) {
+        const nn = v3.normalize(n);
+        let t = Math.abs(nn[2]) < 0.9 ? [0,0,1] : [0,1,0];
+        let e1 = v3.cross(nn, t);
+        if (v3.norm(e1) < 1e-6) t = [1,0,0], e1 = v3.cross(nn, t);
+        e1 = v3.normalize(e1);
+        const e2 = v3.normalize(v3.cross(nn, e1));
+        return { e1, e2, n: nn };
+      }
+
+      // --------- Deterministic RNG ----------
+      function mulberry32(seed) {
+        let a = seed >>> 0;
+        return function() {
+          a |= 0; a = (a + 0x6D2B79F5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      function randn(rng) {
+        // Box-Muller
+        let u = 0, v = 0;
+        while (u === 0) u = rng();
+        while (v === 0) v = rng();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      }
+
+      // --------- Scenario generators ----------
+      function genEasy(seed) {
+        const rng = mulberry32(seed);
+        const N = 560;
+        const sigma = 0.22;
+        const A = [-0.85, 0, 0];
+        const B = [ 0.85, 0, 0];
+
+        const pts = [];
+        for (let i = 0; i < N/2; i++) {
+          pts.push({
+            p: [
+              A[0] + randn(rng)*sigma,
+              A[1] + randn(rng)*sigma,
+              A[2] + randn(rng)*sigma
+            ],
+            c: 0
+          });
+        }
+        for (let i = 0; i < N/2; i++) {
+          pts.push({
+            p: [
+              B[0] + randn(rng)*sigma,
+              B[1] + randn(rng)*sigma,
+              B[2] + randn(rng)*sigma
+            ],
+            c: 1
+          });
+        }
+        return pts;
+      }
+
+        function genHiddenLinearClumpy(seed) {
+        // Linearly separable sheets with continuous coverage,
+        // but with class-specific density texture in the plane.
+        const rng = mulberry32(seed);
+        const N = 1260;
+
+        const normal = v3.normalize([1.0, 1.0, 0.4]);
+        const { e1, e2, n } = basisFromNormal(normal);
+
+        // --- True linear separation knobs ---
+        const d = 0.45;
+        const thickness = 0.2;
+
+        // --- Plane extent ---
+        const halfSize = 1.4;
+
+        // --- Texture knobs ---
+        const attractStrength = 0.95;   // how strongly points are pulled toward attractors
+        const attractProb = 0.95;       // fraction of points influenced by texture
+        const attractSigma = 2.55;      // spatial falloff of texture
+
+        // Class-specific attractors (in u,v plane)
+        const attractA = [
+            [-0.8, -0.2],
+            [ 0.4,  0.9],
+            [ 0.9, -0.6]
+        ];
+
+        const attractB = [
+            [-0.6,  0.8],
+            [ 0.7,  0.2],
+            [-0.2, -0.9]
+        ];
+
+        function texturedUV(attractors) {
+            let u = (rng() * 2 - 1) * halfSize;
+            let v = (rng() * 2 - 1) * halfSize;
+
+            if (rng() < attractProb) {
+            const a = attractors[Math.floor(rng() * attractors.length)];
+            const du = a[0] - u;
+            const dv = a[1] - v;
+            const r2 = du*du + dv*dv;
+
+            // Smooth pull toward attractor
+            const w = attractStrength * Math.exp(-r2 / (2 * attractSigma * attractSigma));
+            u += du * w;
+            v += dv * w;
+            }
+
+            return [u, v];
+        }
+
+        const pts = [];
+
+        for (let i = 0; i < N/2; i++) {
+            const [u, v] = texturedUV(attractA);
+            const w = randn(rng) * thickness;
+
+            const p = v3.add(
+            v3.add(v3.scale(e1, u), v3.scale(e2, v)),
+            v3.scale(n, -d + w)
+            );
+
+            pts.push({ p, c: 0 });
+        }
+
+        for (let i = 0; i < N/2; i++) {
+            const [u, v] = texturedUV(attractB);
+            const w = randn(rng) * thickness;
+
+            const p = v3.add(
+            v3.add(v3.scale(e1, u), v3.scale(e2, v)),
+            v3.scale(n, d + w)
+            );
+
+            pts.push({ p, c: 1 });
+        }
+
+        return pts;
+        }
+
+
+
+      function genHiddenLinear(seed) {
+        // Two big parallel sheets separated along an off-axis normal.
+        // Linearly separable, but from many views they look interleaved until you rotate "side-on".
+        const rng = mulberry32(seed);
+        const N = 700;
+
+        const normal = v3.normalize([1.0, 1.0, 0.4]);
+        const { e1, e2, n } = basisFromNormal(normal);
+
+        const sheetHalfSize = 1.05;
+        const d = 0.38;
+        const thickness = 0.15;
+
+        const pts = [];
+        for (let i = 0; i < N/2; i++) {
+          const u = (rng()*2 - 1) * sheetHalfSize;
+          const v = (rng()*2 - 1) * sheetHalfSize;
+          const w = randn(rng) * thickness;
+          const p = v3.add(
+            v3.add(v3.scale(e1, u), v3.scale(e2, v)),
+            v3.scale(n, (-d + w))
+          );
+          pts.push({ p, c: 0 });
+        }
+        for (let i = 0; i < N/2; i++) {
+          const u = (rng()*2 - 1) * sheetHalfSize;
+          const v = (rng()*2 - 1) * sheetHalfSize;
+          const w = randn(rng) * thickness;
+          const p = v3.add(
+            v3.add(v3.scale(e1, u), v3.scale(e2, v)),
+            v3.scale(n, (d + w))
+          );
+          pts.push({ p, c: 1 });
+        }
+        return pts;
+      }
+
+      function genNonlinearRing(seed) {
+        // Inner disk vs outer ring, living in a tilted plane (with a little thickness).
+        // Never linearly separable, but rotate until you "look at the plane" and you see the ring structure.
+        const rng = mulberry32(seed);
+        const N = 740;
+
+        const planeNormal = v3.normalize([0.2, 1.0, 0.55]);
+        const { e1, e2, n } = basisFromNormal(planeNormal);
+
+        const pts = [];
+
+        // Group A: inner disk
+        for (let i = 0; i < N/2; i++) {
+          const theta = rng() * Math.PI * 2;
+          const r = Math.sqrt(rng()) * 0.58;
+          const x = r * Math.cos(theta);
+          const y = r * Math.sin(theta);
+
+          const wobble = 0.25 * Math.sin(3 * theta);
+          const thick = randn(rng) * 0.24;
+
+          const p = v3.add(
+            v3.add(v3.scale(e1, x), v3.scale(e2, y)),
+            v3.scale(n, wobble + thick)
+          );
+
+          pts.push({ p, c: 0 });
+        }
+
+        // Group B: outer ring
+        for (let i = 0; i < N/2; i++) {
+          const theta = rng() * Math.PI * 2;
+          const r = 0.78 + rng() * 0.40;
+          const x = r * Math.cos(theta);
+          const y = r * Math.sin(theta);
+
+          const wobble = 0.50 * Math.sin(3 * theta + 0.6);
+          const thick = randn(rng) * 0.04;
+
+          const p = v3.add(
+            v3.add(v3.scale(e1, x), v3.scale(e2, y)),
+            v3.scale(n, wobble + thick)
+          );
+
+          pts.push({ p, c: 1 });
+        }
+
+        return pts;
+      }
+
+      function genChaos(seed) {
+        // No structure: labels are independent of geometry.
+        const rng = mulberry32(seed);
+        const N = 760;
+        const s = 1.15;
+        const pts = [];
+        for (let i = 0; i < N; i++) {
+          const p = [(rng()*2 - 1)*s, (rng()*2 - 1)*s, (rng()*2 - 1)*s];
+          const c = rng() < 0.5 ? 0 : 1;
+          pts.push({ p, c });
+        }
+        return pts;
+      }
+
+      // --------- Scenarios + initial views ----------
+      function quatFromYawPitch(yaw, pitch) {
+        const qy = quat.fromAxisAngle([0,1,0], yaw);
+        const qx = quat.fromAxisAngle([1,0,0], pitch);
+        return quat.normalize(quat.mul(qy, qx));
+      }
+
+      const scenarios = [
+        {
+          id: "easy",
+          name: "A. Linearly separable (obvious)",
+          desc: "Two compact blobs. Most views still look cleanly split.",
+          seed: 11,
+          make: genEasy,
+          initRot: () => quatFromYawPitch(0.55, -0.35)
+        },
+        {
+          id: "hidden",
+          name: "B. Linearly separable (you must rotate to see it)",
+          desc: "Two parallel sheets separated by a plane, but the default view hides the gap. Rotate until the two layers peel apart.",
+          seed: 23,
+          make: genHiddenLinear,
+          initRot: () => {
+            const n = v3.normalize([1.0, 1.0, 0.4]);
+            const alignToZ = quat.fromVectors(n, [0,0,1]); // hides separation in depth
+            const littleTwist = quat.fromAxisAngle([0,1,0], 0.18);
+            return quat.normalize(quat.mul(littleTwist, alignToZ));
+          }
+        },
+        {
+          id: "ring",
+          name: "C. Not linearly separable (but curve-separable)",
+          desc: "Inner disk vs outer ring living in a tilted plane. No rotation makes a plane work, but the circular structure becomes obvious from the right angle.",
+          seed: 37,
+          make: genNonlinearRing,
+          initRot: () => {
+            const m = v3.normalize([0.2, 1.0, 0.55]);
+            // Start closer to edge-on so the ring is not immediately obvious.
+            const target = v3.normalize([1.0, 0.0, 0.25]);
+            const q = quat.fromVectors(m, target);
+            const spice = quat.fromAxisAngle([0,0,1], -0.15);
+            return quat.normalize(quat.mul(spice, q));
+          }
+        },
+        {
+          id: "chaos",
+          name: "D. Chaos (geometry does not help)",
+          desc: "Positions are random and labels are random. Rotating only changes the shape of your illusions.",
+          seed: 101,
+          make: genChaos,
+          initRot: () => quatFromYawPitch(-0.35, -0.25)
+        },
+        {
+        id: "hidden_clumps",
+        name: "E. Linearly separable (misleading clusters)",
+        desc: "Two parallel sheets (still linearly separable), but with strong in-plane clusters that look like ‘structure’ from the wrong angles.",
+        seed: 59,
+        make: genHiddenLinearClumpy,
+        initRot: () => {
+            // Start in a view that hides the separation (normal roughly aligned with camera depth)
+            const n = v3.normalize([1.0, 1.0, 0.4]);
+            const alignToZ = quat.fromVectors(n, [0,0,1]);
+            const littleTwist = quat.fromAxisAngle([0,1,0], 0.22);
+            return quat.normalize(quat.mul(littleTwist, alignToZ));
+        }
+        },
+
+      ];
+
+      // --------- App state ----------
+      const COLORS = {
+        A: "rgba(255, 204, 102, 0.95)",
+        B: "rgba(102, 217, 255, 0.95)",
+        bg: "#0b0d12",
+
+        axisX: "rgba(255, 120, 120, 0.85)",
+        axisY: "rgba(120, 255, 170, 0.82)",
+        axisZ: "rgba(120, 170, 255, 0.82)",
+        axisDim: "rgba(255,255,255,0.12)",
+        text: "rgba(255,255,255,0.9)"
+      };
+
+      swA.style.background = COLORS.A;
+      swB.style.background = COLORS.B;
+
+      let points = [];
+      let rotQ = [1,0,0,0];
+
+      function setScenarioById(id) {
+        const sc = scenarios.find(s => s.id === id) || scenarios[0];
+        selectEl.value = sc.id;
+        descEl.textContent = sc.desc;
+        points = sc.make(sc.seed);
+        rotQ = sc.initRot();
+        requestRender();
+      }
+
+      // --------- Resize handling ----------
+      let cssW = 0, cssH = 0, dpr = 1;
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        cssW = Math.max(1, rect.width);
+        cssH = Math.max(1, rect.height);
+        dpr = window.devicePixelRatio || 1;
+
+        const w = Math.round(cssW * dpr);
+        const h = Math.round(cssH * dpr);
+
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        // Draw in CSS pixel coordinates
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        requestRender();
+      }
+
+      window.addEventListener("resize", resize);
+
+      // --------- Arcball rotation (click-drag) ----------
+      let dragging = false;
+      let lastArc = [0,0,1];
+
+      function screenToArcball(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const r = 0.9 * Math.min(rect.width, rect.height) / 2;
+
+        let nx = (x - cx) / r;
+        let ny = (y - cy) / r;
+        ny = -ny; // flip so up is positive
+
+        const d = nx*nx + ny*ny;
+        let nz;
+        if (d <= 1) nz = Math.sqrt(1 - d);
+        else {
+          const inv = 1 / Math.sqrt(d);
+          nx *= inv;
+          ny *= inv;
+          nz = 0;
+        }
+        return v3.normalize([nx, ny, nz]);
+      }
+
+      canvas.addEventListener("pointerdown", (e) => {
+        canvas.setPointerCapture(e.pointerId);
+        dragging = true;
+        lastArc = screenToArcball(e.clientX, e.clientY);
+        requestRender();
+      });
+
+      canvas.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const curArc = screenToArcball(e.clientX, e.clientY);
+        const dq = quat.fromVectors(lastArc, curArc);
+        rotQ = quat.normalize(quat.mul(dq, rotQ));
+        lastArc = curArc;
+        requestRender();
+      });
+
+      function endDrag() {
+        dragging = false;
+      }
+      canvas.addEventListener("pointerup", endDrag);
+      canvas.addEventListener("pointercancel", endDrag);
+      canvas.addEventListener("pointerleave", endDrag);
+
+      // --------- Render ----------
+      let rafPending = false;
+
+      function requestRender() {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(draw);
+      }
+
+      function project(v, camDist, focal, worldScale, cx, cy) {
+        const z = v[2] + camDist;
+        const k = focal / z;
+        return { x: v[0] * k * worldScale + cx, y: -v[1] * k * worldScale + cy, k, z };
+      }
+
+      function drawAxes(camDist, focal, worldScale, cx, cy) {
+        const L = 1.38;
+        const axes = [
+          { a: [-L,0,0], b: [ L,0,0], col: COLORS.axisX, label: "x", labPos: [ L,0,0] },
+          { a: [0,-L,0], b: [0, L,0], col: COLORS.axisY, label: "y", labPos: [0, L,0] },
+          { a: [0,0,-L], b: [0,0, L], col: COLORS.axisZ, label: "z", labPos: [0,0, L] },
+        ];
+
+        // Dim crosshair at origin for a tiny depth cue
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = COLORS.axisDim;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2.2, 0, Math.PI*2);
+        ctx.stroke();
+
+        for (const ax of axes) {
+          const ra = quat.rotateVec3(rotQ, ax.a);
+          const rb = quat.rotateVec3(rotQ, ax.b);
+          const pa = project(ra, camDist, focal, worldScale, cx, cy);
+          const pb = project(rb, camDist, focal, worldScale, cx, cy);
+
+          ctx.lineWidth = 1.25;
+          ctx.strokeStyle = ax.col;
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.stroke();
+
+          // Label near positive end
+          const rl = quat.rotateVec3(rotQ, ax.labPos);
+          const pl = project(rl, camDist, focal, worldScale, cx, cy);
+          ctx.fillStyle = ax.col;
+          ctx.font = "12px ui-sans-serif, system-ui";
+          ctx.fillText(ax.label, pl.x + 6, pl.y - 6);
+        }
+      }
+
+      function draw() {
+        rafPending = false;
+        resize();
+
+        // Background
+        ctx.fillStyle = COLORS.bg;
+        ctx.fillRect(0, 0, cssW, cssH);
+
+        const cx = cssW / 2;
+        const cy = cssH / 2;
+
+        // Camera and projection params
+        const camDist = 3.4;
+        const focal = 1.9;
+        const worldScale = 0.92 * Math.min(cssW, cssH) / 2;
+
+        // Axes first (behind points)
+        drawAxes(camDist, focal, worldScale, cx, cy);
+
+        // Rotate, project, depth sort points
+        const baseR = 3.0;
+        const renderPts = new Array(points.length);
+
+        for (let i = 0; i < points.length; i++) {
+          const pr = quat.rotateVec3(rotQ, points[i].p);
+          const pj = project(pr, camDist, focal, worldScale, cx, cy);
+          renderPts[i] = {
+            x: pj.x,
+            y: pj.y,
+            z: pj.z,
+            k: pj.k,
+            c: points[i].c
+          };
+        }
+
+        renderPts.sort((a,b) => b.z - a.z); // far to near
+
+        // Points
+        for (const p of renderPts) {
+          const r = Math.max(1.1, Math.min(6.2, baseR * p.k));
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+
+          ctx.fillStyle = (p.c === 0) ? COLORS.A : COLORS.B;
+          ctx.fill();
+
+          // subtle outline for readability
+          ctx.lineWidth = 0.6;
+          ctx.strokeStyle = "rgba(0,0,0,0.28)";
+          ctx.stroke();
+        }
+      }
+
+      // --------- UI wiring ----------
+      for (const sc of scenarios) {
+        const opt = document.createElement("option");
+        opt.value = sc.id;
+        opt.textContent = sc.name;
+        selectEl.appendChild(opt);
+      }
+
+      selectEl.addEventListener("change", () => setScenarioById(selectEl.value));
+
+      // Boot
+      setScenarioById("easy");
+      resize();
+      requestRender();
+    })();
+  </script>
+</body>
+</html>
