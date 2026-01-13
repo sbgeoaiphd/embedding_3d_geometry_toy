@@ -1,0 +1,2456 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Subspace Separability Explorer</title>
+  <style>
+        :root {
+      --bg0: #0b0d12;
+      --bg1: #0f1320;
+      --panel: rgba(0,0,0,0.36);
+      --panelBorder: rgba(255,255,255,0.14);
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.72);
+      --muted2: rgba(255,255,255,0.58);
+      --line: rgba(255,255,255,0.12);
+
+      --a: rgba(255, 204, 102, 0.95);
+      --b: rgba(102, 217, 255, 0.95);
+
+      --axisX: rgba(255, 120, 120, 0.85);
+      --axisY: rgba(120, 255, 170, 0.82);
+      --axisZ: rgba(120, 170, 255, 0.82);
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: radial-gradient(1200px 900px at 55% 35%, var(--bg1), var(--bg0));
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    #wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    canvas#c {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: grab;
+    }
+    canvas#c:active { cursor: grabbing; }
+
+    #ui {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      width: min(540px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
+      background: var(--panel);
+      border: 1px solid var(--panelBorder);
+      border-radius: 16px;
+      padding: 10px 12px 12px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 14px 52px rgba(0,0,0,0.45);
+      user-select: none;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    /* Subtle scrollbar */
+    #ui::-webkit-scrollbar { width: 10px; }
+    #ui::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.14);
+      border-radius: 999px;
+      border: 3px solid rgba(0,0,0,0);
+      background-clip: padding-box;
+    }
+    #ui::-webkit-scrollbar-track { background: rgba(0,0,0,0); }
+
+    #titleRow {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    #title {
+      font-weight: 780;
+      font-size: 14px;
+      letter-spacing: 0.35px;
+      opacity: 0.98;
+      line-height: 1.1;
+    }
+
+    #tagline {
+      font-size: 12px;
+      color: var(--muted2);
+      white-space: nowrap;
+    }
+
+    .block { margin-top: 8px; }
+    .lbl {
+      font-size: 12px;
+      color: var(--muted2);
+      margin-bottom: 6px;
+      letter-spacing: 0.2px;
+    }
+
+    select {
+      width: 100%;
+      font-size: 14px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(12,14,22,0.92);
+      color: var(--text);
+      outline: none;
+    }
+
+    #desc {
+      margin-top: 9px;
+      font-size: 13px;
+      line-height: 1.35;
+      color: rgba(255,255,255,0.88);
+    }
+
+    #legend {
+      margin-top: 8px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 12px;
+      opacity: 0.88;
+    }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-right: 6px;
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .row.noLine { border-top: none; padding-top: 0; }
+
+    .left {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .rowTitle {
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.90);
+      line-height: 1.15;
+    }
+    .rowHint {
+      font-size: 11.5px;
+      color: var(--muted2);
+      line-height: 1.15;
+    }
+
+    /* Switch */
+    .switch {
+      position: relative;
+      width: 42px;
+      height: 22px;
+      flex: 0 0 auto;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .switch span {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.16);
+      transition: 160ms ease;
+    }
+    .switch span::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 2px;
+      top: 1px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.92);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.28);
+      transition: 160ms ease;
+    }
+    .switch input:checked + span {
+      background: rgba(120,170,255,0.26);
+      border-color: rgba(120,170,255,0.40);
+    }
+    .switch input:checked + span::before {
+      transform: translateX(20px);
+      background: rgba(255,255,255,0.95);
+    }
+
+    /* Buttons */
+    .btnRow {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button {
+      flex: 1;
+      font-size: 13px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(12,14,22,0.88);
+      color: rgba(255,255,255,0.92);
+      cursor: pointer;
+      transition: 140ms ease;
+    }
+    button:hover {
+      border-color: rgba(255,255,255,0.28);
+      background: rgba(18,20,30,0.92);
+    }
+    button:active { transform: translateY(1px); }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Sliders */
+    .sliderRow {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      align-items: center;
+    }
+    .sliderRow .sLabel {
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.88);
+    }
+    input[type="range"] {
+      width: 100%;
+      margin-top: 6px;
+      accent-color: rgba(120,170,255,0.92);
+    }
+    .sliderWrap {
+      grid-column: 1 / -1;
+    }
+
+    /* Score box */
+    #scoreBox {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .scoreLine {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.88);
+      margin-bottom: 6px;
+    }
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.12);
+      overflow: hidden;
+    }
+    #bar2d {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(255,204,102,0.60), rgba(102,217,255,0.65));
+    }
+
+    /* Subspace tools */
+    #subspaceBox {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    #subspaceHint {
+      margin-top: 6px;
+      font-size: 11.5px;
+      color: rgba(255,255,255,0.58);
+      line-height: 1.25;
+    }
+
+    /* Reveal panel */
+    #revealPanel {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    #stat3d {
+      font-size: 12.5px;
+      line-height: 1.35;
+      color: rgba(255,255,255,0.88);
+      margin-bottom: 8px;
+    }
+    #planeEq {
+      font-size: 11.5px;
+      color: var(--muted2);
+      margin-top: 6px;
+      line-height: 1.25;
+    }
+    #bearingReadout {
+      font-size: 11.5px;
+      color: rgba(255,255,255,0.62);
+      margin-top: 6px;
+      line-height: 1.25;
+    }
+    #signalReadout {
+      font-size: 11.5px;
+      color: rgba(255,255,255,0.62);
+      margin-top: 8px;
+      line-height: 1.25;
+    }
+    #profilePanel {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    #plot {
+      width: 100%;
+      height: 92px;
+      display: block;
+      border-radius: 10px;
+      background: rgba(12,14,22,0.60);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+    #hint {
+      margin-top: 9px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="c"></canvas>
+
+    <div id="ui">
+            <div id="titleRow">
+        <div id="title">Subspace separability explorer</div>
+        <div id="tagline">Rotate, change subspace, reveal</div>
+      </div>
+
+      <div class="block">
+        <div class="lbl">Scenario</div>
+        <select id="scenario"></select>
+        <div id="desc"></div>
+        <div id="legend">
+          <span><span class="swatch" id="swA"></span>Group A</span>
+          <span><span class="swatch" id="swB"></span>Group B</span>
+        </div>
+      </div>
+
+      <div class="btnRow">
+        <button id="resetBtn" title="Reset rotation and zoom">Reset view</button>
+        <button id="newBtn" title="Regenerate points with a new seed">New sample</button>
+      </div>
+
+            <div id="subspaceBox">
+        <div class="lbl">Subspace tools</div>
+
+        <div class="block" style="margin-top:10px;">
+          <div class="lbl">Ambient dimension</div>
+          <select id="dims" title="Dimensionality of the embedding space">
+            <option value="4">4D</option>
+            <option value="8">8D</option>
+            <option value="16" selected>16D</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Random subspace</div>
+            <div class="rowHint">Pick a new 3D basis inside the D-dimensional space</div>
+          </div>
+          <button id="sweepBtn" style="flex:0 0 auto; min-width:160px;" title="Randomize the 3D basis (triad) used for visualization">Random triad</button>
+        </div>
+
+        <div class="sliderRow">
+          <div class="sLabel">Guided subspace steering</div>
+          <div id="couplerVal" class="rowHint">0%</div>
+          <div class="sliderWrap">
+            <input type="range" id="coupler" min="0" max="1" step="0.01" value="0" />
+          </div>
+        </div>
+        <div id="subspaceHint">
+          Guided steering smoothly rotates the subspace toward a hidden guidance direction (when available),
+          while keeping the 3D basis orthonormal.
+        </div>
+      </div>
+
+
+      <div class="row noLine">
+        <div class="left">
+          <div class="rowTitle">Teaching overlays</div>
+          <div class="rowHint">Extra cues, stats, and plots</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="teach" checked />
+          <span></span>
+        </label>
+      </div>
+
+      <div id="teachPanel">
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Show best linear plane</div>
+            <div class="rowHint">Best attempt at a separating plane</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showPlane" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Show margin band</div>
+            <div class="rowHint">Meaningful only when perfectly separable</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showMargin" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Show grid</div>
+            <div class="rowHint">A faint XY grid for orientation</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showGrid" checked />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Auto rotate</div>
+            <div class="rowHint">Slow rotation</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="autoRotate" />
+            <span></span>
+          </label>
+        </div>
+
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Reveal truth</div>
+            <div class="rowHint">Reveals true linear separability</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="revealTruth" />
+            <span></span>
+          </label>
+        </div>
+        <div class="row">
+          <div class="left">
+            <div class="rowTitle">Show signal profile</div>
+            <div class="rowHint">Shows effective channels; unlocks override</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="showProfile" />
+            <span></span>
+          </label>
+        </div>
+
+        <div id="profilePanel" class="hidden">
+          <div class="block" style="margin-top:8px;">
+            <div class="lbl">Effective signal channels (override)</div>
+            <select id="signalK"></select>
+            <div id="signalKInfo" style="margin-top:6px;font-size:11.5px;color:rgba(255,255,255,0.58);line-height:1.25;">
+              Auto: randomly assigned per rescan.
+            </div>
+          </div>
+        </div>
+
+        <div class="sliderRow">
+          <div class="sLabel">Zoom</div>
+          <div id="zoomVal" class="rowHint">3.40</div>
+          <div class="sliderWrap">
+            <input type="range" id="zoom" min="2.60" max="6.10" step="0.01" value="3.40" />
+          </div>
+        </div>
+
+        <div class="sliderRow">
+          <div class="sLabel">Point size</div>
+          <div id="ptVal" class="rowHint">3.00</div>
+          <div class="sliderWrap">
+            <input type="range" id="ptSize" min="1.80" max="5.60" step="0.05" value="3.00" />
+          </div>
+        </div>
+
+        <div id="scoreBox">
+          <div class="scoreLine">
+            <span>2D projection separability</span>
+            <span id="score2d">…</span>
+          </div>
+          <div class="bar"><div id="bar2d"></div></div>
+          <div style="margin-top:6px;font-size:11.5px;color:rgba(255,255,255,0.58);line-height:1.25;">
+            If you only saw the current 2D projection, how well could a straight line separate the two groups?
+          </div>
+        </div>
+
+        <div id="revealPanel" class="hidden">
+          <div id="stat3d"></div>
+          <canvas id="plot"></canvas>
+          <div id="planeEq"></div>
+          <div id="bearingReadout"></div>
+          <div id="signalReadout"></div>
+        </div>
+      </div>
+
+      <div id="hint">Drag to rotate. Scroll to zoom. Use "Random triad" to change the 3D subspace. Double-click to reset.</div>
+    </div>
+  </div>
+
+  <script>
+(() => {
+const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d", { alpha: false });
+
+      const selectEl = document.getElementById("scenario");
+      const descEl = document.getElementById("desc");
+      const swA = document.getElementById("swA");
+      const swB = document.getElementById("swB");
+
+      const resetBtn = document.getElementById("resetBtn");
+      const newBtn = document.getElementById("newBtn");
+
+      const teachEl = document.getElementById("teach");
+      const teachPanel = document.getElementById("teachPanel");
+      const showPlaneEl = document.getElementById("showPlane");
+      const showMarginEl = document.getElementById("showMargin");
+      const showGridEl = document.getElementById("showGrid");
+      const autoRotateEl = document.getElementById("autoRotate");
+      const revealTruthEl = document.getElementById("revealTruth");
+      const showProfileEl = document.getElementById("showProfile");
+      const profilePanel = document.getElementById("profilePanel");
+      const signalKEl = document.getElementById("signalK");
+      const signalKInfoEl = document.getElementById("signalKInfo");
+
+      const zoomEl = document.getElementById("zoom");
+      const zoomValEl = document.getElementById("zoomVal");
+
+      const ptSizeEl = document.getElementById("ptSize");
+      const ptValEl = document.getElementById("ptVal");
+
+      const score2dEl = document.getElementById("score2d");
+      const bar2dEl = document.getElementById("bar2d");
+
+      const revealPanel = document.getElementById("revealPanel");
+      const stat3dEl = document.getElementById("stat3d");
+      const plotCanvas = document.getElementById("plot");
+      const planeEqEl = document.getElementById("planeEq");
+      const bearingReadoutEl = document.getElementById("bearingReadout");
+      const signalReadoutEl = document.getElementById("signalReadout");
+
+      // Subspace controls
+      const dimsEl = document.getElementById("dims");
+const sweepBtn = document.getElementById("sweepBtn");
+const couplerEl = document.getElementById("coupler");
+      const couplerValEl = document.getElementById("couplerVal");
+
+      // ---------- Colors ----------
+      const COLORS = {
+        A: [255, 204, 102],
+        B: [102, 217, 255],
+        bg0: "#0b0d12",
+
+        axisX: getComputedStyle(document.documentElement).getPropertyValue("--axisX").trim(),
+        axisY: getComputedStyle(document.documentElement).getPropertyValue("--axisY").trim(),
+        axisZ: getComputedStyle(document.documentElement).getPropertyValue("--axisZ").trim(),
+        axisDim: "rgba(255,255,255,0.12)",
+        grid: "rgba(255,255,255,0.08)",
+
+        planeFill: "rgba(255,255,255,0.06)",
+        planeStroke: "rgba(255,255,255,0.22)",
+        marginStroke: "rgba(255,255,255,0.16)"
+      };
+
+      swA.style.background = `rgba(${COLORS.A[0]},${COLORS.A[1]},${COLORS.A[2]},0.95)`;
+      swB.style.background = `rgba(${COLORS.B[0]},${COLORS.B[1]},${COLORS.B[2]},0.92)`;
+
+      // ---------- Tiny math kit ----------
+      const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
+      const lerp = (a,b,t) => a + (b-a)*t;
+
+      const v3 = {
+        add: (a,b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]],
+        sub: (a,b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]],
+        scale: (a,s) => [a[0]*s, a[1]*s, a[2]*s],
+        dot: (a,b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2],
+        cross: (a,b) => [
+          a[1]*b[2] - a[2]*b[1],
+          a[2]*b[0] - a[0]*b[2],
+          a[0]*b[1] - a[1]*b[0]
+        ],
+        norm: (a) => Math.sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]),
+        normalize: (a) => {
+          const n = Math.sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]) || 1;
+          return [a[0]/n, a[1]/n, a[2]/n];
+        }
+      };
+
+      // Quaternion format: [w, x, y, z]
+      const quat = {
+        normalize: (q) => {
+          const n = Math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]) || 1;
+          return [q[0]/n, q[1]/n, q[2]/n, q[3]/n];
+        },
+        mul: (a,b) => ([
+          a[0]*b[0] - a[1]*b[1] - a[2]*b[2] - a[3]*b[3],
+          a[0]*b[1] + a[1]*b[0] + a[2]*b[3] - a[3]*b[2],
+          a[0]*b[2] - a[1]*b[3] + a[2]*b[0] + a[3]*b[1],
+          a[0]*b[3] + a[1]*b[2] - a[2]*b[1] + a[3]*b[0]
+        ]),
+        fromAxisAngle: (axis, angle) => {
+          const a = v3.normalize(axis);
+          const s = Math.sin(angle/2);
+          return [Math.cos(angle/2), a[0]*s, a[1]*s, a[2]*s];
+        },
+        fromVectors: (a, b) => {
+          const vA = v3.normalize(a);
+          const vB = v3.normalize(b);
+          const d = v3.dot(vA, vB);
+          if (d < -0.999999) {
+            const axis = v3.normalize(
+              Math.abs(vA[0]) < 0.9 ? v3.cross(vA, [1,0,0]) : v3.cross(vA, [0,1,0])
+            );
+            return [0, axis[0], axis[1], axis[2]];
+          }
+          const c = v3.cross(vA, vB);
+          const q = [1 + d, c[0], c[1], c[2]];
+          return quat.normalize(q);
+        },
+        rotateVec3: (q, v) => {
+          const w = q[0], qx = q[1], qy = q[2], qz = q[3];
+          const vx = v[0], vy = v[1], vz = v[2];
+
+          const tx = 2 * (qy*vz - qz*vy);
+          const ty = 2 * (qz*vx - qx*vz);
+          const tz = 2 * (qx*vy - qy*vx);
+
+          return [
+            vx + w*tx + (qy*tz - qz*ty),
+            vy + w*ty + (qz*tx - qx*tz),
+            vz + w*tz + (qx*ty - qy*tx),
+          ];
+        }
+      };
+
+      function basisFromNormal(n) {
+        const nn = v3.normalize(n);
+        let t = Math.abs(nn[2]) < 0.9 ? [0,0,1] : [0,1,0];
+        let e1 = v3.cross(nn, t);
+        if (v3.norm(e1) < 1e-6) t = [1,0,0], e1 = v3.cross(nn, t);
+        e1 = v3.normalize(e1);
+        const e2 = v3.normalize(v3.cross(nn, e1));
+        return { e1, e2, n: nn };
+      }
+
+      // ---------- Deterministic RNG ----------
+      function mulberry32(seed) {
+        let a = seed >>> 0;
+        return function() {
+          a |= 0; a = (a + 0x6D2B79F5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      function randn(rng) {
+        let u = 0, v = 0;
+        while (u === 0) u = rng();
+        while (v === 0) v = rng();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      }
+      function randnClamped(rng, sigma, maxAbs) {
+        let x;
+        do { x = randn(rng) * sigma; } while (Math.abs(x) > maxAbs);
+        return x;
+      }
+
+      // ---------- N-dimensional helpers ----------
+      function dotN(a,b) {
+        let s = 0;
+        for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+        return s;
+      }
+      function normN(a) { return Math.sqrt(dotN(a,a)); }
+      function scaleN(a, s) {
+        const out = new Array(a.length);
+        for (let i = 0; i < a.length; i++) out[i] = a[i] * s;
+        return out;
+      }
+      function addN(a, b) {
+        const out = new Array(a.length);
+        for (let i = 0; i < a.length; i++) out[i] = a[i] + b[i];
+        return out;
+      }
+      function subN(a, b) {
+        const out = new Array(a.length);
+        for (let i = 0; i < a.length; i++) out[i] = a[i] - b[i];
+        return out;
+      }
+      function normalizeN(a) {
+        const n = normN(a) || 1;
+        return scaleN(a, 1 / n);
+      }
+      function axpy(out, a, x) {
+        // out += a * x (in-place)
+        for (let i = 0; i < out.length; i++) out[i] += a * x[i];
+        return out;
+      }
+      function projectOut(v, u) {
+        // remove component of v along unit vector u
+        const du = dotN(v, u);
+        const out = v.slice();
+        for (let i = 0; i < out.length; i++) out[i] -= du * u[i];
+        return out;
+      }
+      function randomUnitVec(rng, dims) {
+        const v = new Array(dims);
+        for (let i = 0; i < dims; i++) v[i] = randn(rng);
+        return normalizeN(v);
+      }
+      function randomUnitVecOrthogonal(rng, dims, us) {
+        // us: array of unit vectors to be orthogonal to (or a single unit vector)
+        if (us && us.length && typeof us[0] === "number") us = [us];
+
+        let v = new Array(dims);
+        for (let tries = 0; tries < 24; tries++) {
+          for (let i = 0; i < dims; i++) v[i] = randn(rng);
+          for (const u of (us || [])) v = projectOut(v, u);
+          const n = normN(v);
+          if (n > 1e-6) return scaleN(v, 1 / n);
+        }
+        // fallback: basis from standard axes
+        v = new Array(dims).fill(0);
+        v[0] = 1;
+        for (const u of (us || [])) v = projectOut(v, u);
+        return normalizeN(v);
+      }
+      function orthonormalize(vs) {
+        const us = [];
+        for (let i = 0; i < vs.length; i++) {
+          let v = vs[i].slice();
+          for (const u of us) v = projectOut(v, u);
+          const n = normN(v);
+          if (n < 1e-7) return null;
+          us.push(scaleN(v, 1 / n));
+        }
+        return us;
+      }
+      function randomTriad(rng, dims, mustBeOrthogonalTo=null) {
+        const raw = [];
+        for (let k = 0; k < 3; k++) {
+          let v = new Array(dims);
+          for (let i = 0; i < dims; i++) v[i] = randn(rng);
+          if (mustBeOrthogonalTo) v = projectOut(v, mustBeOrthogonalTo);
+          raw.push(v);
+        }
+        const tri = orthonormalize(raw);
+        if (tri) return tri;
+
+        // retry a few times
+        for (let tries = 0; tries < 16; tries++) {
+          const raw2 = [];
+          for (let k = 0; k < 3; k++) {
+            let v = new Array(dims);
+            for (let i = 0; i < dims; i++) v[i] = randn(rng);
+            if (mustBeOrthogonalTo) v = projectOut(v, mustBeOrthogonalTo);
+            raw2.push(v);
+          }
+          const t2 = orthonormalize(raw2);
+          if (t2) return t2;
+        }
+
+        // ultimate fallback: random but simple
+        const u1 = randomUnitVec(rng, dims);
+        const u2 = randomUnitVecOrthogonal(rng, dims, [u1]);
+        const u3 = randomUnitVecOrthogonal(rng, dims, [u1, u2]);
+        if (mustBeOrthogonalTo) {
+          // enforce by projecting each out, then re-orthonormalize
+          const tri2 = orthonormalize([projectOut(u1, mustBeOrthogonalTo), projectOut(u2, mustBeOrthogonalTo), projectOut(u3, mustBeOrthogonalTo)]);
+          return tri2 || [u1,u2,u3];
+        }
+        return [u1,u2,u3];
+      }
+      function triadWithU1(rng, dims, u1) {
+        const uu1 = normalizeN(u1);
+        const u2 = randomUnitVecOrthogonal(rng, dims, [uu1]);
+        const u3 = randomUnitVecOrthogonal(rng, dims, [uu1, u2]);
+        return [uu1, u2, u3];
+      }
+      function projectToTriad(x, triad) {
+        return [
+          dotN(x, triad[0]),
+          dotN(x, triad[1]),
+          dotN(x, triad[2])
+        ];
+      }
+      function slerpN(a, b, t) {
+        const aa = normalizeN(a);
+        let bb = normalizeN(b);
+
+        // choose shorter arc
+        let d = clamp(dotN(aa, bb), -1, 1);
+        if (d < 0) {
+          bb = scaleN(bb, -1);
+          d = -d;
+        }
+
+        const theta = Math.acos(clamp(d, -1, 1));
+        if (theta < 1e-6) {
+          return normalizeN(addN(scaleN(aa, 1 - t), scaleN(bb, t)));
+        }
+        const s = Math.sin(theta);
+        const w1 = Math.sin((1 - t) * theta) / s;
+        const w2 = Math.sin(t * theta) / s;
+        return addN(scaleN(aa, w1), scaleN(bb, w2));
+      }
+      function applyCoupler(baseTriad, guideDir, t) {
+        if (!baseTriad || !guideDir) return baseTriad;
+        const u1b = baseTriad[0];
+        const u2b = baseTriad[1];
+        const u3b = baseTriad[2];
+
+        const u1 = normalizeN(slerpN(u1b, guideDir, t));
+
+        // Keep u2/u3 as close as possible to base, but orthonormal to new u1
+        let v2 = projectOut(u2b, u1);
+        let n2 = normN(v2);
+        if (n2 < 1e-6) v2 = randomUnitVecOrthogonal(mulberry32(0xBEEF + Math.floor(t*9999)), u1.length, [u1]), n2 = normN(v2);
+        const u2 = scaleN(v2, 1 / (n2 || 1));
+
+        let v3 = projectOut(u3b, u1);
+        v3 = projectOut(v3, u2);
+        let n3 = normN(v3);
+        if (n3 < 1e-6) v3 = randomUnitVecOrthogonal(mulberry32(0xFACE + Math.floor(t*9999)), u1.length, [u1, u2]), n3 = normN(v3);
+        const u3 = scaleN(v3, 1 / (n3 || 1));
+
+        return [u1, u2, u3];
+      }
+
+      // ---------- Scenarios (D-dimensional embeddings) ----------
+
+      const DEFAULT_LEAK = 0.12;
+
+
+      // Soft sparsity + a simple “effective dimension” metric (participation ratio).
+      function participationRatio(w) {
+        let ss = 0;
+        for (let i = 0; i < w.length; i++) ss += w[i]*w[i];
+        if (ss < 1e-12) return 0;
+        let sumP2 = 0;
+        for (let i = 0; i < w.length; i++) {
+          const p = (w[i]*w[i]) / ss;
+          sumP2 += p*p;
+        }
+        return sumP2 > 1e-12 ? (1 / sumP2) : 0;
+      }
+
+      function shuffleInPlace(rng, arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+        }
+        return arr;
+      }
+
+      function makeSoftSparseDirection(rng, dims, kStrong, leak=0.12) {
+        const k = clamp(Math.floor(kStrong || dims), 1, dims);
+
+        const idx = [];
+        for (let i = 0; i < dims; i++) idx.push(i);
+        shuffleInPlace(rng, idx);
+        const strongIdx = idx.slice(0, k);
+
+        const strong = new Array(dims).fill(false);
+        for (const j of strongIdx) strong[j] = true;
+
+        const w = new Array(dims);
+        for (let i = 0; i < dims; i++) {
+          const sd = strong[i] ? 1.0 : leak;
+          w[i] = randn(rng) * sd;
+        }
+
+        const wn = normN(w) || 1;
+        for (let i = 0; i < dims; i++) w[i] /= wn;
+
+        return {
+          w,
+          kStrong: k,
+          leak,
+          strongIdx,
+          effDim: participationRatio(w)
+        };
+      }
+
+      function clampAlong(d, clampAbs, minMargin=0.02) {
+        const cap = Math.max(1e-4, d - minMargin);
+        return Math.min(clampAbs, cap);
+      }
+
+      function gaussianNoiseOrthogonalTo(rng, dims, orthVecs, sigma) {
+        if (sigma <= 0) return new Array(dims).fill(0);
+        let g = new Array(dims);
+        for (let i = 0; i < dims; i++) g[i] = randn(rng);
+        for (const u of orthVecs) g = projectOut(g, u);
+        return scaleN(g, sigma);
+      }
+
+      function quatFromYawPitch(yaw, pitch) {
+        const qy = quat.fromAxisAngle([0,1,0], yaw);
+        const qx = quat.fromAxisAngle([1,0,0], pitch);
+        return quat.normalize(quat.mul(qy, qx));
+      }
+
+      // --- Mission generators ---
+      function genEasy(seed, dims, opts={}) {
+        const rng = mulberry32(seed);
+
+        const N = 640;
+        const base = { d: 0.88, sigmaAlong: 0.12, clampAbs: 0.34, sigmaOrtho: 0.26 };
+
+        let d = base.d;
+        let sigmaAlong = base.sigmaAlong;
+        let clampAbs = clampAlong(d, base.clampAbs, 0.02);
+        let sigmaOrtho = base.sigmaOrtho;
+
+        const prof = makeSoftSparseDirection(rng, dims, opts.kStrong ?? dims, opts.leak ?? DEFAULT_LEAK);
+        const w = prof.w;
+
+        const pts = [];
+        for (let i = 0; i < N; i++) {
+          const y = (i < N/2) ? -1 : 1;
+
+          const sAlong = y * d + randnClamped(rng, sigmaAlong, clampAbs);
+
+          let x = scaleN(w, sAlong);
+
+          // isotropic junk orthogonal to w (lives in D-1 dims)
+          let g = new Array(dims);
+          for (let k = 0; k < dims; k++) g[k] = randn(rng);
+          g = projectOut(g, w);
+          x = addN(x, scaleN(g, sigmaOrtho));
+
+          pts.push({ p: x, c: (y > 0) ? 1 : 0 });
+        }
+
+        return { pts, guide: w, truthW: w, signalProfile: prof };
+      }
+
+      function genHiddenLinear(seed, dims, opts={}) {
+        // Two parallel sheets, now with extra high-D junk so projections can lie.
+        const rng = mulberry32(seed);
+
+        const N = 860;
+
+        const base = {
+          d: 0.50,
+          thickness: 0.13,
+          clampAbs: 0.22,
+          halfSize: 1.15,
+          sigmaJunk: 0.10
+        };
+
+        let d = base.d;
+        let thickness = base.thickness;
+        let clampAbs = clampAlong(d, base.clampAbs, 0.02);
+        let halfSize = base.halfSize;
+        let sigmaJunk = base.sigmaJunk;
+
+        const prof = makeSoftSparseDirection(rng, dims, opts.kStrong ?? dims, opts.leak ?? DEFAULT_LEAK);
+        const w = prof.w;
+
+        const e1 = randomUnitVecOrthogonal(rng, dims, w);
+        const e2 = randomUnitVecOrthogonal(rng, dims, w);
+        // ensure e2 orthogonal to e1 too
+        let tmp = projectOut(e2, e1);
+        const e2o = scaleN(tmp, 1 / (normN(tmp) || 1));
+
+        const pts = [];
+        for (let i = 0; i < N; i++) {
+          const y = (i < N/2) ? -1 : 1;
+          const u = (rng()*2 - 1) * halfSize;
+          const v = (rng()*2 - 1) * halfSize;
+          const t = randnClamped(rng, thickness, clampAbs);
+
+          let x = addN(addN(scaleN(e1, u), scaleN(e2o, v)), scaleN(w, y*d + t));
+
+          // extra noise in the complement of span{w,e1,e2}
+          x = addN(x, gaussianNoiseOrthogonalTo(rng, dims, [w, e1, e2o], sigmaJunk));
+
+          pts.push({ p: x, c: (y > 0) ? 1 : 0 });
+        }
+
+        return { pts, guide: w, truthW: w, signalProfile: prof };
+      }
+
+      function genHiddenLinearClumpy(seed, dims, opts={}) {
+        // Separable sheets with in-plane clustering + high-D junk.
+        const rng = mulberry32(seed);
+
+        const N = 1260;
+
+        const base = {
+          d: 0.52,
+          thickness: 0.13,
+          clampAbs: 0.20,
+          halfSize: 1.45,
+          sigmaJunk: 0.12,
+
+          attractStrength: 0.95,
+          attractProb: 0.95,
+          attractSigma: 2.55,
+          attractA: [[-0.8,-0.2],[0.4,0.9],[0.9,-0.6]],
+          attractB: [[-0.6,0.8],[0.7,0.2],[-0.2,-0.9]],
+        };
+
+        let d = base.d;
+        let thickness = base.thickness;
+        let clampAbs = clampAlong(d, base.clampAbs, 0.02);
+        let halfSize = base.halfSize;
+        let sigmaJunk = base.sigmaJunk;
+
+        const prof = makeSoftSparseDirection(rng, dims, opts.kStrong ?? dims, opts.leak ?? DEFAULT_LEAK);
+        const w = prof.w;
+
+        const e1 = randomUnitVecOrthogonal(rng, dims, w);
+        let e2 = randomUnitVecOrthogonal(rng, dims, w);
+        e2 = scaleN(projectOut(e2, e1), 1 / (normN(projectOut(e2, e1)) || 1));
+
+        function texturedUV(attractors) {
+          let u = (rng() * 2 - 1) * halfSize;
+          let v = (rng() * 2 - 1) * halfSize;
+
+          if (rng() < base.attractProb) {
+            const a = attractors[Math.floor(rng() * attractors.length)];
+            const du = a[0] - u;
+            const dv = a[1] - v;
+            const r2 = du*du + dv*dv;
+            const wgt = base.attractStrength * Math.exp(-r2 / (2 * base.attractSigma * base.attractSigma));
+            u += du * wgt;
+            v += dv * wgt;
+          }
+          return [u, v];
+        }
+
+        const pts = [];
+        for (let i = 0; i < N; i++) {
+          const y = (i < N/2) ? -1 : 1;
+          const [u,v] = texturedUV(y < 0 ? base.attractA : base.attractB);
+          const t = randnClamped(rng, thickness, clampAbs);
+
+          let x = addN(addN(scaleN(e1,u), scaleN(e2,v)), scaleN(w, y*d + t));
+          x = addN(x, gaussianNoiseOrthogonalTo(rng, dims, [w, e1, e2], sigmaJunk));
+          pts.push({ p: x, c: (y > 0) ? 1 : 0 });
+        }
+
+        return { pts, guide: w, truthW: w, signalProfile: prof };
+      }
+
+      function genNonlinearRing(seed, dims, opts={}) {
+        // Inner disk vs outer ring in a tilted plane (not linearly separable).
+        const rng = mulberry32(seed);
+        const N = 920;
+
+        // ring plane normal (guide direction still useful)
+        const n = normalizeN(new Array(dims).fill(0).map(_ => randn(rng)));
+        const e1 = randomUnitVecOrthogonal(rng, dims, n);
+        let e2 = randomUnitVecOrthogonal(rng, dims, n);
+        e2 = scaleN(projectOut(e2, e1), 1 / (normN(projectOut(e2, e1)) || 1));
+
+        const pts = [];
+
+        for (let i = 0; i < N/2; i++) {
+          const theta = rng() * Math.PI * 2;
+          const r = Math.sqrt(rng()) * 0.58;
+          const x2 = r * Math.cos(theta);
+          const y2 = r * Math.sin(theta);
+
+          const wobble = 0.25 * Math.sin(3 * theta);
+          const thick = randn(rng) * 0.24;
+
+          let p = addN(addN(scaleN(e1, x2), scaleN(e2, y2)), scaleN(n, wobble + thick));
+          // tiny extra-dim noise for realism
+          p = addN(p, gaussianNoiseOrthogonalTo(rng, dims, [n, e1, e2], 0.06));
+          pts.push({ p, c: 0 });
+        }
+
+        for (let i = 0; i < N/2; i++) {
+          const theta = rng() * Math.PI * 2;
+          const r = 0.78 + rng() * 0.40;
+          const x2 = r * Math.cos(theta);
+          const y2 = r * Math.sin(theta);
+
+          const wobble = 0.50 * Math.sin(3 * theta + 0.6);
+          const thick = randn(rng) * 0.06;
+
+          let p = addN(addN(scaleN(e1, x2), scaleN(e2, y2)), scaleN(n, wobble + thick));
+          p = addN(p, gaussianNoiseOrthogonalTo(rng, dims, [n, e1, e2], 0.06));
+          pts.push({ p, c: 1 });
+        }
+
+        return { pts, guide: n, truthW: null, signalProfile: null };
+      }
+
+      function genChaos(seed, dims, opts={}) {
+        const rng = mulberry32(seed);
+        const N = 920;
+        const s = 1.15;
+        const pts = [];
+        for (let i = 0; i < N; i++) {
+          const p = new Array(dims);
+          for (let d = 0; d < dims; d++) p[d] = (rng()*2 - 1)*s;
+          const c = rng() < 0.5 ? 0 : 1;
+          pts.push({ p, c });
+        }
+        return { pts, guide: null, truthW: null, signalProfile: null };
+      }
+
+      function genKnifeEdge(seed, dims, opts={}) {
+        // Linearly separable, but the margin is razor thin.
+        const rng = mulberry32(seed);
+
+        const N = 720;
+
+        const base = { d: 0.44, sigmaAlong: 0.16, clampAbs: 0.42, sigmaOrtho: 0.34 };
+
+        let d = base.d;
+        let sigmaAlong = base.sigmaAlong;
+        let clampAbs = clampAlong(d, base.clampAbs, 0.02);
+        let sigmaOrtho = base.sigmaOrtho;
+
+        const prof = makeSoftSparseDirection(rng, dims, opts.kStrong ?? dims, opts.leak ?? DEFAULT_LEAK);
+        const w = prof.w;
+
+        const pts = [];
+        for (let i = 0; i < N; i++) {
+          const y = (i < N/2) ? -1 : 1;
+          const sAlong = y * d + randnClamped(rng, sigmaAlong, clampAbs);
+          let x = scaleN(w, sAlong);
+
+          let g = new Array(dims);
+          for (let k = 0; k < dims; k++) g[k] = randn(rng);
+          g = projectOut(g, w);
+          x = addN(x, scaleN(g, sigmaOrtho));
+
+          pts.push({ p: x, c: (y > 0) ? 1 : 0 });
+        }
+
+        return { pts, guide: w, truthW: w, signalProfile: prof };
+      }
+
+      function genSparseDecoy(seed, dims, opts={}) {
+        // A planar separator exists, but a “pretty” decoy structure lives off-axis.
+        const rng = mulberry32(seed);
+
+        const N = 980;
+
+        const base = {
+          d: 0.74,
+          sigmaAlong: 0.11,
+          clampAbs: 0.30,
+
+          // decoy clusters in an orthogonal 2D plane
+          clusterSigma: 0.16,
+          clusterR: 1.02,
+
+          // extra junk dims
+          sigmaJunk: 0.18
+        };
+
+        let d = base.d;
+        let sigmaAlong = base.sigmaAlong;
+        let clampAbs = clampAlong(d, base.clampAbs, 0.02);
+        let clusterSigma = base.clusterSigma;
+        let clusterR = base.clusterR;
+        let sigmaJunk = base.sigmaJunk;
+
+        const prof = makeSoftSparseDirection(rng, dims, opts.kStrong ?? Math.min(4,dims), opts.leak ?? DEFAULT_LEAK);
+        const w = prof.w;
+
+        // decoy plane orthogonal to w
+        const d1 = randomUnitVecOrthogonal(rng, dims, w);
+        let d2 = randomUnitVecOrthogonal(rng, dims, w);
+        d2 = scaleN(projectOut(d2, d1), 1 / (normN(projectOut(d2, d1)) || 1));
+
+        const centers = [];
+        const Kc = 6;
+        for (let k = 0; k < Kc; k++) {
+          const ang = (k / Kc) * Math.PI * 2;
+          centers.push([clusterR * Math.cos(ang), clusterR * Math.sin(ang)]);
+        }
+
+        const pts = [];
+        for (let i = 0; i < N; i++) {
+          const y = (i < N/2) ? -1 : 1;
+
+          const sAlong = y * d + randnClamped(rng, sigmaAlong, clampAbs);
+          let x = scaleN(w, sAlong);
+
+          // pick a decoy cluster independent of class
+          const ci = Math.floor(rng() * Kc);
+          const cu = centers[ci][0] + randn(rng) * clusterSigma;
+          const cv = centers[ci][1] + randn(rng) * clusterSigma;
+          x = addN(x, addN(scaleN(d1, cu), scaleN(d2, cv)));
+
+          // high-D junk orthogonal to w and decoy plane
+          x = addN(x, gaussianNoiseOrthogonalTo(rng, dims, [w, d1, d2], sigmaJunk));
+
+          pts.push({ p: x, c: (y > 0) ? 1 : 0 });
+        }
+
+        return { pts, guide: w, truthW: w, signalProfile: prof };
+      }
+
+      const scenarios = [
+        {
+          id: "easy",
+          name: "Scenario A: Linearly separable (obvious)",
+          desc: "Two compact blobs. Many random 3D subspaces still show a clean split.",
+          seed: 11,
+          truthLinear: true,
+          make: genEasy,
+          initRot: () => quatFromYawPitch(0.55, -0.35),
+          initTriad: ({ rng, dims, guide }) => triadWithU1(rng, dims, guide),
+          kChoices: null
+        },
+        {
+          id: "hidden",
+          name: "Scenario B: Linearly separable (hidden outside the current subspace)",
+          desc: "A separator exists in the full space, but the starting 3D subspace is nearly blind. Try random triads, then guided steering.",
+          seed: 23,
+          truthLinear: true,
+          make: genHiddenLinear,
+          initRot: () => quatFromYawPitch(0.10, -0.10),
+          initTriad: ({ rng, dims, guide }) => randomTriad(rng, dims, guide), // start orthogonal to the separator
+          kChoices: null
+        },
+        {
+          id: "ring",
+          name: "Scenario C: Not linearly separable (ring in a plane)",
+          desc: "Inner disk vs outer ring in a random plane. A line (or plane) cannot split it, but the structure appears from the right subspace.",
+          seed: 37,
+          truthLinear: false,
+          make: genNonlinearRing,
+          initRot: () => quatFromYawPitch(-0.20, -0.10),
+          initTriad: ({ rng, dims, guide }) => randomTriad(rng, dims, null),
+          kChoices: null
+        },
+        {
+          id: "chaos",
+          name: "Scenario D: Chaos (geometry does not help)",
+          desc: "Random positions and random labels. Rotating or changing subspace only changes your illusions.",
+          seed: 101,
+          truthLinear: false,
+          make: genChaos,
+          initRot: () => quatFromYawPitch(-0.35, -0.25),
+          initTriad: ({ rng, dims, guide }) => randomTriad(rng, dims, null),
+          kChoices: null
+        },
+        {
+          id: "hidden_clumps",
+          name: "Scenario E: Linearly separable (misleading clusters)",
+          desc: "Separable sheets with strong in-plane clustering. Many subspaces look clumpy and confusing even though a plane exists in the full space.",
+          seed: 59,
+          truthLinear: true,
+          make: genHiddenLinearClumpy,
+          initRot: () => quatFromYawPitch(0.20, -0.10),
+          initTriad: ({ rng, dims, guide }) => randomTriad(rng, dims, guide),
+          kChoices: null
+        },
+        {
+          id: "knife",
+          name: "Scenario F: Linearly separable (thin margin)",
+          desc: "A separator exists, but the margin is narrow. Small noise can create near-misses in many projections.",
+          seed: 77,
+          truthLinear: true,
+          make: genKnifeEdge,
+          initRot: () => quatFromYawPitch(0.40, -0.20),
+          initTriad: ({ rng, dims, guide }) => randomTriad(rng, dims, guide),
+          kChoices: null
+        },
+        {
+          id: "sparse_decoy",
+          name: "Scenario G: Linearly separable (soft-sparse signal + decoy structure)",
+          desc: "The true separating direction lives in only a few channels, while a pretty cluster structure sits elsewhere. Some subspaces look very convincing but are irrelevant.",
+          seed: 1337,
+          truthLinear: true,
+          make: genSparseDecoy,
+          initRot: () => quatFromYawPitch(0.20, -0.15),
+          initTriad: ({ rng, dims, guide }) => randomTriad(rng, dims, null),
+          kChoices: [2,4,8,16]
+        },
+      ];// ---------- Simple linear methods (tiny, no libraries) ----------
+      function trainPerceptron(points, dims, maxEpochs = 60) {
+        let w = new Array(dims).fill(0);
+        let b = 0;
+
+        let converged = false;
+        let epochs = 0;
+        let totalMistakes = 0;
+
+        for (let ep = 0; ep < maxEpochs; ep++) {
+          let mistakes = 0;
+          for (let i = 0; i < points.length; i++) {
+            const x = points[i].p;
+            const y = points[i].c === 1 ? 1 : -1;
+            let s = b;
+            for (let d = 0; d < dims; d++) s += w[d] * x[d];
+            if (y * s <= 0) {
+              for (let d = 0; d < dims; d++) w[d] += y * x[d];
+              b += y;
+              mistakes++;
+            }
+          }
+          totalMistakes += mistakes;
+          epochs = ep + 1;
+          if (mistakes === 0) { converged = true; break; }
+        }
+
+        return { w, b, converged, epochs, totalMistakes };
+      }
+
+      function solveLinearSystem(A, b) {
+        // Gauss-Jordan elimination for small-to-medium n (n <= 16 here)
+        const n = A.length;
+        const M = new Array(n);
+        for (let i = 0; i < n; i++) {
+          M[i] = A[i].slice();
+          M[i].push(b[i]);
+        }
+
+        for (let col = 0; col < n; col++) {
+          let piv = col;
+          for (let r = col + 1; r < n; r++) {
+            if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r;
+          }
+          if (Math.abs(M[piv][col]) < 1e-12) return new Array(n).fill(0);
+
+          if (piv !== col) {
+            const tmp = M[col]; M[col] = M[piv]; M[piv] = tmp;
+          }
+
+          const div = M[col][col];
+          for (let c = col; c <= n; c++) M[col][c] /= div;
+
+          for (let r = 0; r < n; r++) {
+            if (r === col) continue;
+            const f = M[r][col];
+            for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
+          }
+        }
+
+        return M.map(row => row[n]);
+      }
+
+      function computeLDA(points, dims) {
+        const m0 = new Array(dims).fill(0);
+        const m1 = new Array(dims).fill(0);
+        let n0 = 0, n1 = 0;
+
+        for (const pt of points) {
+          const x = pt.p;
+          if (pt.c === 0) { n0++; for (let d = 0; d < dims; d++) m0[d] += x[d]; }
+          else { n1++; for (let d = 0; d < dims; d++) m1[d] += x[d]; }
+        }
+        for (let d = 0; d < dims; d++) {
+          m0[d] /= Math.max(1, n0);
+          m1[d] /= Math.max(1, n1);
+        }
+
+        const Sw = new Array(dims).fill(0).map(() => new Array(dims).fill(0));
+        for (const pt of points) {
+          const x = pt.p;
+          const mu = pt.c === 0 ? m0 : m1;
+          const dx = new Array(dims);
+          for (let d = 0; d < dims; d++) dx[d] = x[d] - mu[d];
+          for (let i = 0; i < dims; i++) {
+            for (let j = 0; j < dims; j++) {
+              Sw[i][j] += dx[i] * dx[j];
+            }
+          }
+        }
+
+        const reg = 1e-2;
+        for (let d = 0; d < dims; d++) Sw[d][d] += reg;
+
+        const dm = new Array(dims);
+        for (let d = 0; d < dims; d++) dm[d] = m1[d] - m0[d];
+
+        const w = solveLinearSystem(Sw, dm);
+
+        let b = 0;
+        for (let d = 0; d < dims; d++) b -= 0.5 * w[d] * (m0[d] + m1[d]);
+
+        let correct = 0;
+        for (const pt of points) {
+          const x = pt.p;
+          let s = b;
+          for (let d = 0; d < dims; d++) s += w[d] * x[d];
+          const pred = s > 0 ? 1 : 0;
+          if (pred === pt.c) correct++;
+        }
+
+        return { w, b, acc: correct / Math.max(1, points.length), m0, m1 };
+      }
+
+      // ---------- Projection & drawing ----------
+      let cssW = 0, cssH = 0, dpr = 1;
+      let bgGrad = null;
+
+      function resizeMain() {
+        const rect = canvas.getBoundingClientRect();
+        cssW = Math.max(1, rect.width);
+        cssH = Math.max(1, rect.height);
+        dpr = window.devicePixelRatio || 1;
+
+        const w = Math.round(cssW * dpr);
+        const h = Math.round(cssH * dpr);
+
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        bgGrad = ctx.createRadialGradient(cssW*0.55, cssH*0.35, 40, cssW*0.55, cssH*0.35, Math.max(cssW, cssH)*0.80);
+        bgGrad.addColorStop(0, "#0b0f18");
+        bgGrad.addColorStop(1, "#06060a");
+      }
+
+      window.addEventListener("resize", () => requestRender());
+
+      function project(v, camDist, focal, worldScale, cx, cy) {
+        const z = v[2] + camDist;
+        const k = focal / z;
+        return { x: v[0] * k * worldScale + cx, y: -v[1] * k * worldScale + cy, k, z };
+      }
+
+      function drawAxes(camDist, focal, worldScale, cx, cy) {
+        const L = 1.40;
+        const axes = [
+          { a: [-L,0,0], b: [ L,0,0], col: COLORS.axisX, label: "u1", labPos: [ L,0,0] },
+          { a: [0,-L,0], b: [0, L,0], col: COLORS.axisY, label: "u2", labPos: [0, L,0] },
+          { a: [0,0,-L], b: [0,0, L], col: COLORS.axisZ, label: "u3", labPos: [0,0, L] },
+        ];
+
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = COLORS.axisDim;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2.2, 0, Math.PI*2);
+        ctx.stroke();
+
+        for (const ax of axes) {
+          const ra = quat.rotateVec3(rotQ, ax.a);
+          const rb = quat.rotateVec3(rotQ, ax.b);
+          const pa = project(ra, camDist, focal, worldScale, cx, cy);
+          const pb = project(rb, camDist, focal, worldScale, cx, cy);
+
+          ctx.lineWidth = 1.25;
+          ctx.strokeStyle = ax.col;
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.stroke();
+
+          const rl = quat.rotateVec3(rotQ, ax.labPos);
+          const pl = project(rl, camDist, focal, worldScale, cx, cy);
+          ctx.fillStyle = ax.col;
+          ctx.font = "12px ui-sans-serif, system-ui";
+          ctx.fillText(ax.label, pl.x + 6, pl.y - 6);
+        }
+      }
+
+      function drawGrid(camDist, focal, worldScale, cx, cy) {
+        const L = 1.40;
+        const step = 0.20;
+
+        ctx.lineWidth = 1;
+        for (let t = -L; t <= L + 1e-6; t += step) {
+          const major = Math.abs((t / 0.40) - Math.round(t / 0.40)) < 1e-6;
+          ctx.strokeStyle = major ? "rgba(255,255,255,0.10)" : COLORS.grid;
+
+          {
+            const a = quat.rotateVec3(rotQ, [-L, t, 0]);
+            const b = quat.rotateVec3(rotQ, [ L, t, 0]);
+            const pa = project(a, camDist, focal, worldScale, cx, cy);
+            const pb = project(b, camDist, focal, worldScale, cx, cy);
+
+            ctx.beginPath();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.stroke();
+          }
+          {
+            const a = quat.rotateVec3(rotQ, [t, -L, 0]);
+            const b = quat.rotateVec3(rotQ, [t,  L, 0]);
+            const pa = project(a, camDist, focal, worldScale, cx, cy);
+            const pb = project(b, camDist, focal, worldScale, cx, cy);
+
+            ctx.beginPath();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      function drawPlaneOverlay(camDist, focal, worldScale, cx, cy) {
+        if (!teachMode) return;
+        if (!showPlane) return;
+        if (!modelView || !modelView.display) return;
+
+        const w = modelView.display.w;
+        const b = modelView.display.b;
+        const ww = v3.dot(w,w);
+        if (ww < 1e-10) return;
+
+        const n = v3.normalize(w);
+        const { e1, e2 } = basisFromNormal(n);
+        const L = (modelView.boundRadius || 1.4) * 1.35;
+
+        const x0 = v3.scale(w, -b / ww);
+
+        const corners = [
+          v3.add(v3.add(x0, v3.scale(e1,  L)), v3.scale(e2,  L)),
+          v3.add(v3.add(x0, v3.scale(e1, -L)), v3.scale(e2,  L)),
+          v3.add(v3.add(x0, v3.scale(e1, -L)), v3.scale(e2, -L)),
+          v3.add(v3.add(x0, v3.scale(e1,  L)), v3.scale(e2, -L)),
+        ];
+
+        function drawQuad(centerOffsetDist, strokeStyle, fillStyle, dash = null) {
+          const offs = v3.scale(n, centerOffsetDist);
+          const pts2 = corners.map(p => {
+            const pr = quat.rotateVec3(rotQ, v3.add(p, offs));
+            return project(pr, camDist, focal, worldScale, cx, cy);
+          });
+
+          ctx.save();
+          if (dash) ctx.setLineDash(dash);
+          ctx.beginPath();
+          ctx.moveTo(pts2[0].x, pts2[0].y);
+          for (let i = 1; i < pts2.length; i++) ctx.lineTo(pts2[i].x, pts2[i].y);
+          ctx.closePath();
+
+          if (fillStyle) {
+            ctx.fillStyle = fillStyle;
+            ctx.fill();
+          }
+          ctx.lineWidth = 1.1;
+          ctx.strokeStyle = strokeStyle;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        drawQuad(0, COLORS.planeStroke, COLORS.planeFill);
+
+        if (showMargin && modelView.perceptron && modelView.perceptron.converged) {
+          const m = modelView.marginDist || 0;
+          if (m > 1e-4) {
+            drawQuad( m, COLORS.marginStroke, null, [5,4]);
+            drawQuad(-m, COLORS.marginStroke, null, [5,4]);
+          }
+        }
+
+        const a0 = quat.rotateVec3(rotQ, x0);
+        const a1 = quat.rotateVec3(rotQ, v3.add(x0, v3.scale(n, 0.65)));
+        const p0 = project(a0, camDist, focal, worldScale, cx, cy);
+        const p1 = project(a1, camDist, focal, worldScale, cx, cy);
+
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+
+        const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+        const ah = 8;
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p1.x - ah*Math.cos(ang - 0.45), p1.y - ah*Math.sin(ang - 0.45));
+        ctx.lineTo(p1.x - ah*Math.cos(ang + 0.45), p1.y - ah*Math.sin(ang + 0.45));
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // ---------- Plot (distance histogram) ----------
+      function resizePlot() {
+        const rect = plotCanvas.getBoundingClientRect();
+        const w = Math.max(1, Math.round(rect.width * (window.devicePixelRatio || 1)));
+        const h = Math.max(1, Math.round(rect.height * (window.devicePixelRatio || 1)));
+        if (plotCanvas.width !== w || plotCanvas.height !== h) {
+          plotCanvas.width = w;
+          plotCanvas.height = h;
+        }
+      }
+
+      function drawDistancePlot() {
+        if (!modelView || !modelView.display) return;
+        resizePlot();
+        const pctx = plotCanvas.getContext("2d");
+
+        const W = plotCanvas.width;
+        const H = plotCanvas.height;
+
+        pctx.clearRect(0,0,W,H);
+        pctx.fillStyle = "rgba(12,14,22,0.70)";
+        pctx.fillRect(0,0,W,H);
+
+        const pad = 10 * (window.devicePixelRatio || 1);
+        const innerW = W - 2*pad;
+        const innerH = H - 2*pad;
+
+        const dA = (modelView.distA || []).filter(Number.isFinite);
+        const dB = (modelView.distB || []).filter(Number.isFinite);
+        if (dA.length === 0 || dB.length === 0) {
+          pctx.fillStyle = "rgba(255,255,255,0.62)";
+          pctx.font = `${11 * (window.devicePixelRatio || 1)}px ui-sans-serif, system-ui`;
+          pctx.fillText("No finite distances to plot", pad, pad + 14 * (window.devicePixelRatio || 1));
+          return;
+        }
+
+        let minD = Infinity, maxD = -Infinity;
+        for (const v of dA) { if (v < minD) minD = v; if (v > maxD) maxD = v; }
+        for (const v of dB) { if (v < minD) minD = v; if (v > maxD) maxD = v; }
+
+        const span = Math.max(1e-6, maxD - minD);
+        minD -= span * 0.08;
+        maxD += span * 0.08;
+
+        const bins = 34;
+        const hA = new Array(bins).fill(0);
+        const hB = new Array(bins).fill(0);
+
+        function binOf(x) {
+          const t = (x - minD) / (maxD - minD);
+          return clamp(Math.floor(t * bins), 0, bins - 1);
+        }
+
+        for (const v of dA) hA[binOf(v)]++;
+        for (const v of dB) hB[binOf(v)]++;
+
+        const maxC = Math.max(...hA, ...hB, 1);
+
+        pctx.strokeStyle = "rgba(255,255,255,0.14)";
+        pctx.lineWidth = 1;
+        pctx.beginPath();
+        pctx.moveTo(pad, pad + innerH);
+        pctx.lineTo(pad + innerW, pad + innerH);
+        pctx.stroke();
+
+        const xZero = pad + innerW * ((0 - minD) / (maxD - minD));
+        pctx.strokeStyle = "rgba(255,255,255,0.18)";
+        pctx.beginPath();
+        pctx.moveTo(xZero, pad);
+        pctx.lineTo(xZero, pad + innerH);
+        pctx.stroke();
+
+        pctx.fillStyle = "rgba(255,255,255,0.62)";
+        pctx.font = `${11 * (window.devicePixelRatio || 1)}px ui-sans-serif, system-ui`;
+        pctx.fillText("Signed distance to best plane (current triad)", pad, pad + 12 * (window.devicePixelRatio || 1));
+
+        const bw = innerW / bins;
+
+        function rgba(rgb, a) { return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`; }
+
+        for (let i = 0; i < bins; i++) {
+          const x = pad + i*bw;
+          const aH = (hA[i] / maxC) * (innerH * 0.78);
+          const bH = (hB[i] / maxC) * (innerH * 0.78);
+
+          pctx.fillStyle = rgba(COLORS.A, 0.55);
+          pctx.fillRect(x, pad + innerH - aH, bw - 1, aH);
+
+          pctx.fillStyle = rgba(COLORS.B, 0.55);
+          pctx.fillRect(x, pad + innerH - bH, bw - 1, bH);
+        }
+      }
+
+            // ---------- App state ----------
+      let ambientDim = parseInt(dimsEl.value || "8", 10);
+
+      dimsEl.addEventListener("change", () => {
+      ambientDim = parseInt(dimsEl.value, 10);
+      populateSignalKOptions();
+      regenerateCurrent();
+      });
+
+      let points = [];
+      let triad = null;       // 3 vectors in R^D
+      let triadBase = null;   // base triad for guided steering
+      let guideDir = null;    // guidance direction in R^D (unit), if available
+      let truthDir = null;    // true separator direction in R^D (unit), for linearly separable scenarios
+
+      // 3D camera rotation (within triad)
+      let rotQ = [1,0,0,0];
+
+      // Models
+      let modelAmbient = null; // in D dims
+      let modelView = null;    // in 3 dims (current triad)
+
+      // UI toggles
+      let teachMode = true;
+      let showPlane = false;
+      let showMargin = false;
+      let showGrid = true;
+      let autoRotate = false;
+      let revealTruth = false;
+      let showProfile = false;
+      let signalProfile = null;
+      let signalKUsed = null;
+
+      let camDist = parseFloat(zoomEl.value);
+      let basePointR = parseFloat(ptSizeEl.value);
+
+      // Scenario state
+      let currentScenario = scenarios[0];
+      let currentSeed = currentScenario.seed;
+
+      // Subspace state
+      let sweepCount = 0;
+      let couplerT = parseFloat(couplerEl.value || "0");
+
+// ---------- Models ----------
+      function computeAmbientModel() {
+        const perceptron = trainPerceptron(points, ambientDim, 120);
+        const lda = computeLDA(points, ambientDim);
+
+        const display = perceptron.converged ? { w: perceptron.w.slice(), b: perceptron.b, method: "Perceptron" }
+                                            : { w: lda.w.slice(), b: lda.b, method: "LDA" };
+
+        const wn = normN(display.w) || 1;
+
+        let correct = 0;
+        let marginDist = Infinity;
+
+        for (const pt of points) {
+          const x = pt.p;
+          let s = display.b;
+          for (let d = 0; d < ambientDim; d++) s += display.w[d] * x[d];
+          const pred = s > 0 ? 1 : 0;
+          if (pred === pt.c) correct++;
+
+          const dist = s / wn;
+          const y = pt.c === 1 ? 1 : -1;
+          const md = y * dist;
+          if (md < marginDist) marginDist = md;
+        }
+
+        modelAmbient = {
+          perceptron,
+          lda,
+          display,
+          acc: correct / Math.max(1, points.length),
+          marginDist: perceptron.converged ? Math.max(0, marginDist) : 0
+        };
+      }
+
+      function computeViewModel() {
+        if (!triad) return;
+        const viewPts = new Array(points.length);
+        for (let i = 0; i < points.length; i++) {
+          viewPts[i] = { p: projectToTriad(points[i].p, triad), c: points[i].c };
+        }
+
+        const perceptron = trainPerceptron(viewPts, 3, 80);
+        const lda = computeLDA(viewPts, 3);
+
+        const display = perceptron.converged ? { w: perceptron.w.slice(), b: perceptron.b, method: "Perceptron" }
+                                            : { w: lda.w.slice(), b: lda.b, method: "LDA" };
+
+        const wn = v3.norm(display.w) || 1;
+
+        let correct = 0;
+        let marginDist = Infinity;
+        const distA = [];
+        const distB = [];
+
+        let boundR = 1.2;
+
+        for (const pt of viewPts) {
+          const p = pt.p;
+          const s = display.w[0]*p[0] + display.w[1]*p[1] + display.w[2]*p[2] + display.b;
+          const pred = s > 0 ? 1 : 0;
+          if (pred === pt.c) correct++;
+
+          const d = s / wn;
+          if (!Number.isFinite(d)) continue;
+          if (pt.c === 0) distA.push(d);
+          else distB.push(d);
+
+          const y = pt.c === 1 ? 1 : -1;
+          const md = y * d;
+          if (md < marginDist) marginDist = md;
+
+          const rr = Math.sqrt(p[0]*p[0] + p[1]*p[1] + p[2]*p[2]);
+          if (rr > boundR) boundR = rr;
+        }
+
+        modelView = {
+          perceptron,
+          lda,
+          display,
+          acc: correct / Math.max(1, viewPts.length),
+          marginDist: perceptron.converged ? Math.max(0, marginDist) : 0,
+          distA, distB,
+          boundRadius: boundR
+        };
+      }
+
+      // ---------- 2D view score (LDA on rotated XY) ----------
+      let last2DUpdate = 0;
+      let view2DAcc = 0;
+
+      function compute2DViewScore() {
+        if (!triad) return;
+        const feats = new Array(points.length);
+        for (let i = 0; i < points.length; i++) {
+          const y = projectToTriad(points[i].p, triad);
+          const pr = quat.rotateVec3(rotQ, y);
+          feats[i] = [pr[0], pr[1], points[i].c];
+        }
+
+        let m0x=0,m0y=0,m1x=0,m1y=0,n0=0,n1=0;
+        for (const f of feats) {
+          if (f[2] === 0) { n0++; m0x += f[0]; m0y += f[1]; }
+          else { n1++; m1x += f[0]; m1y += f[1]; }
+        }
+        n0 = Math.max(1, n0); n1 = Math.max(1, n1);
+        m0x/=n0; m0y/=n0; m1x/=n1; m1y/=n1;
+
+        let s00=0,s01=0,s11=0;
+        for (const f of feats) {
+          const muX = f[2] === 0 ? m0x : m1x;
+          const muY = f[2] === 0 ? m0y : m1y;
+          const dx = f[0]-muX;
+          const dy = f[1]-muY;
+          s00 += dx*dx;
+          s01 += dx*dy;
+          s11 += dy*dy;
+        }
+        const reg = 1e-2;
+        s00 += reg; s11 += reg;
+
+        const det = s00*s11 - s01*s01;
+        let wx=0, wy=0;
+        if (Math.abs(det) > 1e-12) {
+          const inv00 =  s11/det;
+          const inv01 = -s01/det;
+          const inv11 =  s00/det;
+          const dmX = m1x - m0x;
+          const dmY = m1y - m0y;
+          wx = inv00*dmX + inv01*dmY;
+          wy = inv01*dmX + inv11*dmY;
+        }
+
+        const b = -0.5 * (wx*(m0x+m1x) + wy*(m0y+m1y));
+
+        let correct = 0;
+        for (const f of feats) {
+          const s = wx*f[0] + wy*f[1] + b;
+          const pred = s > 0 ? 1 : 0;
+          if (pred === f[2]) correct++;
+        }
+        view2DAcc = correct / Math.max(1, feats.length);
+      }
+
+      function update2DScoreUI() {
+        const pct = clamp(Math.round(view2DAcc * 100), 0, 100);
+        score2dEl.textContent = `${pct}%`;
+        bar2dEl.style.width = `${pct}%`;
+      }
+
+      // ---------- UI helpers ----------
+      function fmt(x, k=2) {
+        const p = Math.pow(10, k);
+        return (Math.round(x*p)/p).toFixed(k);
+      }
+
+      function subspaceCapturePercent() {
+        if (!guideDir || !triad) return null;
+        const g3 = projectToTriad(guideDir, triad);
+        const cap = v3.norm(g3); // because guideDir is unit and triad is orthonormal
+        return clamp(cap, 0, 1);
+      }
+
+      function inViewVisibilityPercent() {
+        if (!guideDir || !triad) return null;
+        const g3 = projectToTriad(guideDir, triad);
+        const n = v3.norm(g3);
+        if (n < 1e-6) return 0;
+        const g3u = [g3[0]/n, g3[1]/n, g3[2]/n];
+        const gCam = quat.rotateVec3(rotQ, g3u);
+        const hidden = clamp(Math.abs(gCam[2]), 0, 1);
+        return clamp(1 - hidden, 0, 1);
+      }
+
+      function updateDynamicReadouts() {
+        if (!teachMode) return;
+        const show = (revealTruth || showPlane);
+        if (!show) return;
+
+        const cap = subspaceCapturePercent();
+        const vis = inViewVisibilityPercent();
+
+        let msg = "";
+        if (cap === null) msg += "Subspace capture: n/a. ";
+        else msg += `Subspace capture: ${Math.round(cap * 100)}%. `;
+
+        if (cap !== null && cap < 0.08) {
+          msg += "This triad is nearly blind to the guidance direction. A camera rotation will not reveal the split. ";
+        }
+
+        if (vis === null) msg += "In-view visibility: n/a.";
+        else msg += `In-view visibility: ${Math.round(vis * 100)}% (rotate within the triad).`;
+
+        bearingReadoutEl.textContent = msg;
+
+        if (signalReadoutEl) {
+          if (teachMode && showProfile && signalProfile) {
+            const eff = (signalProfile.effDim || 0).toFixed(1);
+            const leakPct = (signalProfile.leak * 100).toFixed(0);
+            signalReadoutEl.textContent = `Signal profile: ${signalProfile.kStrong}/${ambientDim} strong channels (leak ${leakPct}%). Effective ≈ ${eff}.`;
+          } else {
+            signalReadoutEl.textContent = "";
+          }
+        }
+      }
+
+      function updateRevealPanel() {
+        const show = teachMode && (revealTruth || showPlane);
+        revealPanel.classList.toggle("hidden", !show);
+        if (!show) return;
+
+        const truth = currentScenario.truthLinear ? "yes" : "no";
+
+        const amb = modelAmbient;
+        const ambPerc = amb?.perceptron;
+        const ambFound = ambPerc?.converged ? "yes" : "no";
+        const ambAcc = amb ? Math.round(amb.acc * 100) : 0;
+
+        const view = modelView;
+        const viewPerc = view?.perceptron;
+        const viewFound = viewPerc?.converged ? "yes" : "no";
+        const viewAcc = view ? Math.round(view.acc * 100) : 0;
+        const method = view?.display?.method || "—";
+
+        const marginTxt = (viewPerc && viewPerc.converged)
+          ? `Min margin (current subspace): ${fmt(view.marginDist, 3)}`
+          : `Min margin: n/a`;
+
+        let line1 = "";
+        if (revealTruth) {
+          line1 += `Ground truth (${ambientDim}D): linearly separable: ${truth}. `;
+        } else {
+          line1 += `Best linear plane in the current 3D subspace. `;
+        }
+
+        const line2 =
+          `Full-space probe found a perfect separator: ${ambFound} (epochs: ${ambPerc ? ambPerc.epochs : "—"}), accuracy: ${ambAcc}%. ` +
+          `Current subspace perfect: ${viewFound}, accuracy: ${viewAcc}%.`;
+
+        stat3dEl.textContent = `${line1}${line2} ${marginTxt}`;
+
+        if (view && view.display) {
+          const w = view.display.w.slice();
+          const wn = v3.norm(w) || 1;
+          const n = [w[0]/wn, w[1]/wn, w[2]/wn];
+          const b = view.display.b / wn;
+          planeEqEl.textContent =
+            `Subspace plane (normalized): n·x + b = 0, n = (${fmt(n[0])}, ${fmt(n[1])}, ${fmt(n[2])}), b = ${fmt(b)} [method: ${method}]`;
+        } else {
+          planeEqEl.textContent = "Subspace plane: n/a";
+        }
+
+        drawDistancePlot();
+        updateDynamicReadouts();
+      }
+
+      // ---------- Subspace controls ----------
+      function refreshCouplerUI() {
+        const hasGuide = !!guideDir;
+        if (!couplerEl) return;
+
+        if (!hasGuide) {
+          couplerT = 0;
+          couplerEl.value = "0";
+          couplerEl.disabled = true;
+          if (couplerValEl) couplerValEl.textContent = "n/a";
+          return;
+        }
+
+        couplerEl.disabled = false;
+        if (couplerValEl) couplerValEl.textContent = `${Math.round(couplerT * 100)}%`;
+      }
+
+      function randomSweep() {
+        // New random 3D basis (“triad”) inside R^D.
+        const rng = mulberry32((currentSeed ^ 0x9E3779B9) + (sweepCount * 0x85EBCA6B));
+        triadBase = randomTriad(rng, ambientDim, null);
+
+        couplerT = 0;
+        if (couplerEl) couplerEl.value = "0";
+        triad = triadBase;
+
+        sweepCount++;
+
+        computeViewModel();
+        updateRevealPanel();
+        requestRender();
+      }
+
+      if (sweepBtn) sweepBtn.addEventListener("click", () => randomSweep());
+
+      if (couplerEl) couplerEl.addEventListener("input", () => {
+        couplerT = parseFloat(couplerEl.value || "0");
+        if (couplerValEl) couplerValEl.textContent = `${Math.round(couplerT * 100)}%`;
+
+        if (!triadBase) return;
+        triad = applyCoupler(triadBase, guideDir, couplerT);
+        computeViewModel();
+        updateRevealPanel();
+        requestRender();
+      });
+
+      // ---------- Scenario switching ----------
+      for (const sc of scenarios) {
+        const opt = document.createElement("option");
+        opt.value = sc.id;
+        opt.textContent = sc.name;
+        selectEl.appendChild(opt);
+      }
+
+      function regenerateCurrent() {
+        const rng = mulberry32(currentSeed ^ 0xA5A5A5A5);
+
+        // Pick “strong-channel count” (hidden unless the signal profile panel is visible)
+        let kStrong = ambientDim;
+        const overrideActive = (teachMode && showProfile && signalKEl && (signalKEl.value !== "auto"));
+        if (overrideActive) {
+          kStrong = clamp(parseInt(signalKEl.value, 10) || ambientDim, 1, ambientDim);
+        } else if (currentScenario.kChoices && currentScenario.kChoices.length) {
+          const ks = currentScenario.kChoices.filter(k => k <= ambientDim);
+          if (ks.length) kStrong = ks[Math.floor(rng() * ks.length)];
+        }
+
+        const out = currentScenario.make(currentSeed, ambientDim, {
+          kStrong,
+          leak: DEFAULT_LEAK,
+        });
+
+        points = out.pts;
+        guideDir = out.guide ? normalizeN(out.guide) : null;
+        truthDir = out.truthW ? normalizeN(out.truthW) : null;
+
+        signalProfile = out.signalProfile || null;
+        signalKUsed = signalProfile ? signalProfile.kStrong : null;
+
+        // Initialize visualization triad (subspace)
+        triadBase = currentScenario.initTriad
+          ? currentScenario.initTriad({ rng: mulberry32(currentSeed ^ 0x9E3779B9), dims: ambientDim, guide: guideDir })
+          : randomTriad(mulberry32(currentSeed), ambientDim, null);
+
+        // Reset guided steering
+        couplerT = 0;
+        if (couplerEl) couplerEl.value = "0";
+        triad = triadBase;
+
+        sweepCount = 0;
+        refreshCouplerUI();
+
+        // Reset view rotation + scale
+        resetView();
+
+        // Update signal panel (if visible)
+        if (signalKInfoEl) {
+          if (teachMode && showProfile && signalProfile) {
+            const eff = (signalProfile.effDim || 0).toFixed(1);
+            const leakPct = (signalProfile.leak * 100).toFixed(0);
+            signalKInfoEl.textContent = `Active channels: ${signalProfile.kStrong}/${ambientDim} (leak ${leakPct}%). Measured effective ≈ ${eff}.`;
+          } else {
+            signalKInfoEl.textContent = "Auto: randomly assigned per sample.";
+          }
+        }
+
+        computeAmbientModel();
+        computeViewModel();
+        compute2DViewScore();
+        update2DScoreUI();
+        updateRevealPanel();
+        requestRender();
+      }
+
+      function setScenarioById(id) {
+        const sc = scenarios.find(s => s.id === id) || scenarios[0];
+        currentScenario = sc;
+        currentSeed = sc.seed;
+
+        selectEl.value = sc.id;
+        descEl.textContent = sc.desc;
+
+        regenerateCurrent();
+      }
+
+      function newSample() {
+        currentSeed = ((currentSeed * 1664525) + 1013904223) >>> 0;
+        regenerateCurrent();
+      }
+
+      function resetView() {
+        rotQ = currentScenario.initRot ? currentScenario.initRot() : quatFromYawPitch(0.5, -0.3);
+        zoomEl.value = "3.40";
+        ptSizeEl.value = "3.00";
+        camDist = parseFloat(zoomEl.value);
+        basePointR = parseFloat(ptSizeEl.value);
+        zoomValEl.textContent = fmt(camDist, 2);
+        ptValEl.textContent = fmt(basePointR, 2);
+        requestRender();
+      }
+
+      selectEl.addEventListener("change", () => setScenarioById(selectEl.value));
+      resetBtn.addEventListener("click", resetView);
+      newBtn.addEventListener("click", newSample);
+
+      // ---------- Teaching UI wiring ----------
+      function refreshTeachVisibility() {
+        teachMode = teachEl.checked;
+        teachPanel.classList.toggle("hidden", !teachMode);
+
+        if (!teachMode) {
+          showPlaneEl.checked = false;
+          showPlane = false;
+          showMarginEl.checked = false;
+          showMargin = false;
+          revealTruthEl.checked = false;
+          revealTruth = false;
+
+          if (showProfileEl) showProfileEl.checked = false;
+          showProfile = false;
+          if (signalKEl) signalKEl.value = "auto";
+        }
+
+        refreshProfileVisibility();
+        updateRevealPanel();
+        requestRender();
+      }
+
+      
+
+      function populateSignalKOptions() {
+        if (!signalKEl) return;
+        const prev = signalKEl.value || "auto";
+        signalKEl.innerHTML = "";
+
+        const optAuto = document.createElement("option");
+        optAuto.value = "auto";
+        optAuto.textContent = "Auto (random per rescan)";
+        signalKEl.appendChild(optAuto);
+
+        const choices = [2,4,8,16].filter(k => k <= ambientDim);
+        for (const k of choices) {
+          const opt = document.createElement("option");
+          opt.value = String(k);
+          opt.textContent = (k === ambientDim) ? `Dense (${k})` : `${k} strong channels`;
+          signalKEl.appendChild(opt);
+        }
+
+        const values = Array.from(signalKEl.options).map(o => o.value);
+        signalKEl.value = values.includes(prev) ? prev : "auto";
+        signalKEl.disabled = !(teachMode && showProfile);
+      }
+
+      function refreshProfileVisibility() {
+        showProfile = !!(showProfileEl && showProfileEl.checked);
+        const on = (teachMode && showProfile);
+        if (profilePanel) profilePanel.classList.toggle("hidden", !on);
+        if (signalKEl) signalKEl.disabled = !on;
+        if (on) populateSignalKOptions();
+      }
+teachEl.addEventListener("change", refreshTeachVisibility);
+
+      showPlaneEl.addEventListener("change", () => {
+        showPlane = showPlaneEl.checked;
+        updateRevealPanel();
+        requestRender();
+      });
+      showMarginEl.addEventListener("change", () => {
+        showMargin = showMarginEl.checked;
+        requestRender();
+      });
+      showGridEl.addEventListener("change", () => {
+        showGrid = showGridEl.checked;
+        requestRender();
+      });
+      autoRotateEl.addEventListener("change", () => {
+        autoRotate = autoRotateEl.checked;
+        requestRender();
+      });
+      revealTruthEl.addEventListener("change", () => {
+        revealTruth = revealTruthEl.checked;
+        updateRevealPanel();
+        requestRender();
+      });
+
+      if (showProfileEl) {
+        showProfileEl.addEventListener("change", () => {
+          refreshProfileVisibility();
+          // no data regen unless user also overrides K
+          requestRender();
+        });
+      }
+
+      if (signalKEl) {
+        signalKEl.addEventListener("change", () => {
+          if (teachMode && showProfile) regenerateCurrent();
+        });
+      }
+
+      zoomEl.addEventListener("input", () => {
+
+        camDist = parseFloat(zoomEl.value);
+        zoomValEl.textContent = fmt(camDist, 2);
+        requestRender();
+      });
+
+      ptSizeEl.addEventListener("input", () => {
+        basePointR = parseFloat(ptSizeEl.value);
+        ptValEl.textContent = fmt(basePointR, 2);
+        requestRender();
+      });
+
+      // ---------- Arcball rotation ----------
+      let dragging = false;
+      let lastArc = [0,0,1];
+
+      function screenToArcball(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const r = 0.9 * Math.min(rect.width, rect.height) / 2;
+
+        let nx = (x - cx) / r;
+        let ny = (y - cy) / r;
+        ny = -ny;
+
+        const d = nx*nx + ny*ny;
+        let nz;
+        if (d <= 1) nz = Math.sqrt(1 - d);
+        else {
+          const inv = 1 / Math.sqrt(d);
+          nx *= inv;
+          ny *= inv;
+          nz = 0;
+        }
+        return v3.normalize([nx, ny, nz]);
+      }
+
+      canvas.addEventListener("pointerdown", (e) => {
+        canvas.setPointerCapture(e.pointerId);
+        dragging = true;
+        lastArc = screenToArcball(e.clientX, e.clientY);
+        requestRender();
+      });
+
+      canvas.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const curArc = screenToArcball(e.clientX, e.clientY);
+        const dq = quat.fromVectors(lastArc, curArc);
+        rotQ = quat.normalize(quat.mul(dq, rotQ));
+        lastArc = curArc;
+        requestRender();
+      });
+
+      function endDrag() { dragging = false; }
+      canvas.addEventListener("pointerup", endDrag);
+      canvas.addEventListener("pointercancel", endDrag);
+      canvas.addEventListener("pointerleave", endDrag);
+
+      canvas.addEventListener("dblclick", () => resetView());
+
+      canvas.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        camDist = clamp(camDist + e.deltaY * 0.0022, parseFloat(zoomEl.min), parseFloat(zoomEl.max));
+        zoomEl.value = camDist.toFixed(2);
+        zoomValEl.textContent = fmt(camDist, 2);
+        requestRender();
+      }, { passive: false });
+
+      // ---------- Render loop ----------
+      let animating = false;
+      let needsDraw = true;
+
+      function requestRender() {
+        needsDraw = true;
+        if (!animating) {
+          animating = true;
+          requestAnimationFrame(loop);
+        }
+      }
+
+      function loop(t) {
+        if (autoRotate && !dragging) {
+          const dq = quat.fromAxisAngle([0,1,0], 0.006);
+          rotQ = quat.normalize(quat.mul(dq, rotQ));
+          needsDraw = true;
+        }
+
+        if ((t - last2DUpdate) > 120) {
+          compute2DViewScore();
+          if (teachMode) update2DScoreUI();
+          last2DUpdate = t;
+        }
+
+        if (needsDraw) {
+          draw();
+          needsDraw = false;
+        }
+
+        if (autoRotate || dragging) {
+          requestAnimationFrame(loop);
+        } else {
+          animating = false;
+        }
+      }
+
+      function rgba(rgb, a) {
+        return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+      }
+
+      function draw() {
+        resizeMain();
+
+        const cx = cssW / 2;
+        const cy = cssH / 2;
+
+        const focal = 1.9;
+        const worldScale = 0.92 * Math.min(cssW, cssH) / 2;
+
+        ctx.fillStyle = bgGrad || COLORS.bg0;
+        ctx.fillRect(0, 0, cssW, cssH);
+        if (teachMode && showGrid) drawGrid(camDist, focal, worldScale, cx, cy);
+        drawAxes(camDist, focal, worldScale, cx, cy);
+
+        drawPlaneOverlay(camDist, focal, worldScale, cx, cy);
+
+        if (!triad) return;
+
+        const renderPts = new Array(points.length);
+        let zMin = Infinity, zMax = -Infinity;
+
+        for (let i = 0; i < points.length; i++) {
+          const y = projectToTriad(points[i].p, triad);
+          const pr = quat.rotateVec3(rotQ, y);
+          const pj = project(pr, camDist, focal, worldScale, cx, cy);
+          renderPts[i] = { x: pj.x, y: pj.y, z: pj.z, k: pj.k, c: points[i].c };
+          if (pj.z < zMin) zMin = pj.z;
+          if (pj.z > zMax) zMax = pj.z;
+        }
+
+        renderPts.sort((a,b) => b.z - a.z);
+
+        const zSpan = Math.max(1e-6, zMax - zMin);
+
+        for (const p of renderPts) {
+          const r = Math.max(1.05, Math.min(7.0, basePointR * p.k));
+
+          const tt = (p.z - zMin) / zSpan;
+          const fog = lerp(1.0, 0.40, clamp(tt, 0, 1));
+          const baseAlpha = 0.92 * fog;
+
+          const rgb = (p.c === 0) ? COLORS.A : COLORS.B;
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r*1.9, 0, Math.PI*2);
+          ctx.fillStyle = rgba(rgb, baseAlpha * 0.11);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+          ctx.fillStyle = rgba(rgb, baseAlpha);
+          ctx.fill();
+
+          ctx.lineWidth = 0.7;
+          ctx.strokeStyle = "rgba(0,0,0,0.26)";
+          ctx.stroke();
+        }
+
+        // keep dynamic readouts current when instructor is on
+        updateDynamicReadouts();
+      }
+
+      // ---------- Boot ----------
+      zoomValEl.textContent = fmt(parseFloat(zoomEl.value), 2);
+      ptValEl.textContent = fmt(parseFloat(ptSizeEl.value), 2);
+
+      teachMode = teachEl.checked;
+      showPlane = showPlaneEl.checked;
+      showMargin = showMarginEl.checked;
+      showGrid = showGridEl.checked;
+      autoRotate = autoRotateEl.checked;
+      revealTruth = revealTruthEl.checked;
+      refreshTeachVisibility();
+      populateSignalKOptions();
+
+      teachEl.checked = true;
+      showProfileEl.checked = true;
+      refreshTeachVisibility();
+
+      signalKEl.value = "2";
+
+      setScenarioById("hidden_clumps");
+      requestRender();
+    
+})();
+</script>
+</body>
+</html>
