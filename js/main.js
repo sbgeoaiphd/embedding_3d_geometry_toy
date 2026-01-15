@@ -36,7 +36,9 @@ const els = {
   pointSize: document.getElementById("pointSize"),
   pointSizeValue: document.getElementById("pointSizeValue"),
   randomTriad: document.getElementById("randomTriad"),
+  showPca: document.getElementById("showPca"),
   resetCamera: document.getElementById("resetCamera"),
+  viewBasisNote: document.getElementById("viewBasisNote"),
 
   legend: document.getElementById("legend"),
 };
@@ -228,6 +230,8 @@ function buildUI(dataset) {
 
   els.resetCamera.addEventListener("click", () => resetCamera());
   els.randomTriad.addEventListener("click", () => randomizeTriad());
+  els.showPca.addEventListener("click", () => showPcaTriad());
+  setViewBasisNote("Showing PCA axes 1–3");
 
   // Legend
   buildLegend(dataset);
@@ -352,6 +356,12 @@ function resetCamera() {
   renderOnce();
 }
 
+function setViewBasisNote(text) {
+  if (els.viewBasisNote) {
+    els.viewBasisNote.textContent = text;
+  }
+}
+
 function randomizeTriad() {
   if (!state.dataset) return;
   state.viewBasisBase = randomTriad(state.dataset.dim);
@@ -361,6 +371,20 @@ function randomizeTriad() {
   els.primaryStrengthValue.textContent = "0%";
   els.secondaryStrength.value = "0";
   els.secondaryStrengthValue.textContent = "0%";
+  setViewBasisNote("Showing random triad");
+  updateSceneFromUI();
+}
+
+function showPcaTriad() {
+  if (!state.dataset) return;
+  state.viewBasisBase = state.dataset.baseBasis;
+  state.primaryStrength = 0;
+  state.secondaryStrength = 0;
+  els.primaryStrength.value = "0";
+  els.primaryStrengthValue.textContent = "0%";
+  els.secondaryStrength.value = "0";
+  els.secondaryStrengthValue.textContent = "0%";
+  setViewBasisNote("Showing PCA axes 1–3");
   updateSceneFromUI();
 }
 
@@ -491,6 +515,10 @@ function updatePointsAndArrows() {
   // Compute a stable-ish radius to set arrow lengths
   const r = Math.sqrt(maxSq);
   state.baseRadius = Number.isFinite(r) && r > 0 ? r : 1.0;
+  if (state.axesHelper) {
+    const axesScale = Math.max(1.2, state.baseRadius * 0.9);
+    state.axesHelper.scale.setScalar(axesScale);
+  }
 
   // Update primary arrow direction to show where w1 lies in the current view basis.
   const w1 = dataset.classWs.get(state.primaryLabel);

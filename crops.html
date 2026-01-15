@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Embedding Alignment Viewer</title>
+    <title>AlphaEarth Foundations embeddings for Northern French crop fields</title>
     <link rel="stylesheet" href="./style.css" />
     <script type="importmap">
       {
@@ -18,8 +18,16 @@
     <div id="app">
       <aside id="sidebar">
         <div class="title">
-          <div class="title__main">Embedding Alignment Viewer</div>
+          <div class="title__main">AlphaEarth Foundations embeddings for Northern French crop fields</div>
           <div class="title__sub" id="datasetName"></div>
+          <a
+            class="title__link"
+            href="https://deepmind.google/blog/alphaearth-foundations-helps-map-our-planet-in-unprecedented-detail/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Reference: AlphaEarth Foundations overview
+          </a>
         </div>
 
         <section class="panel">
@@ -91,6 +99,8 @@
           </label>
 
           <button id="randomTriad" class="button">Random triad</button>
+          <button id="showPca" class="button">Show PCA axes 1–3</button>
+          <div class="view-basis" id="viewBasisNote">Showing PCA axes 1–3</div>
           <button id="resetCamera" class="button">Reset camera</button>
         </section>
 
@@ -101,6 +111,18 @@
 
         <section class="panel panel--status">
           <div id="status" class="status">Loading…</div>
+        </section>
+
+        <section class="panel panel--credits">
+          <div class="panel__title">Data sources</div>
+          <div class="panel__note">
+            Alpha Earth accessed via
+            <a href="https://source.coop/tge-labs/aef" target="_blank" rel="noreferrer">Source Coop</a>.
+          </div>
+          <div class="panel__note">
+            Field boundaries and crop types derived from
+            <a href="https://geoservices.ign.fr/rpg" target="_blank" rel="noreferrer">French RPG data</a>.
+          </div>
         </section>
       </aside>
 
