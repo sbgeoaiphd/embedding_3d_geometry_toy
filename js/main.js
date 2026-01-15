@@ -6,7 +6,6 @@ import { loadDataset } from "./data.js";
 import {
   basisCoordsOfVector,
   mixAndNormalize,
-  normalize,
   normalizeInPlace,
   orthogonalize,
   orthonormalize3,
@@ -34,6 +33,8 @@ const els = {
 
   showArrow: document.getElementById("showArrow"),
   showAxes: document.getElementById("showAxes"),
+  pointSize: document.getElementById("pointSize"),
+  pointSizeValue: document.getElementById("pointSizeValue"),
   randomTriad: document.getElementById("randomTriad"),
   resetCamera: document.getElementById("resetCamera"),
 
@@ -52,14 +53,15 @@ const state = {
   secondaryStrength: 0,
   showArrow: true,
   showAxes: true,
+  pointSize: 0.03,
 
   // three.js
   renderer: null,
   scene: null,
   camera: null,
   controls: null,
-  points: null,
-  geometry: null,
+  pointsGroup: null,
+  classPoints: new Map(),
   axesHelper: null,
   arrowGroup: null,
   primaryArrow: null,
@@ -69,9 +71,9 @@ const state = {
 
   // buffers
   positions: null,
-  colors: null,
 
   classColors: new Map(),
+  classVisibility: new Map(),
   rng: xorshift32(20240101),
   baseRadius: 1.0,
 };
@@ -92,8 +94,13 @@ function buildLegend(dataset) {
   els.legend.innerHTML = "";
   dataset.classLabels.forEach((label, i) => {
     const c = state.classColors.get(label);
-    const item = document.createElement("div");
+    const item = document.createElement("button");
+    const isVisible = state.classVisibility.get(label) ?? true;
     item.className = "legend__item";
+    item.type = "button";
+    item.dataset.label = label;
+    item.setAttribute("aria-pressed", String(isVisible));
+    if (!isVisible) item.classList.add("is-hidden");
 
     const sw = document.createElement("div");
     sw.className = "legend__swatch";
@@ -105,6 +112,16 @@ function buildLegend(dataset) {
     item.appendChild(sw);
     item.appendChild(txt);
     els.legend.appendChild(item);
+
+    item.addEventListener("click", () => {
+      setClassVisibility(label, !(state.classVisibility.get(label) ?? true));
+    });
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        setClassVisibility(label, !(state.classVisibility.get(label) ?? true));
+      }
+    });
   });
 }
 
@@ -125,6 +142,7 @@ function buildUI(dataset) {
   // Colors
   dataset.classLabels.forEach((label, i) => {
     state.classColors.set(label, hslColorForIndex(i, dataset.classLabels.length));
+    state.classVisibility.set(label, true);
   });
 
   // Primary controls
@@ -191,6 +209,14 @@ function buildUI(dataset) {
     state.showAxes = els.showAxes.checked;
     if (state.axesHelper) state.axesHelper.visible = state.showAxes;
     renderOnce();
+  });
+
+  els.pointSize.value = Math.round(state.pointSize * 100).toString();
+  els.pointSizeValue.textContent = els.pointSize.value;
+  els.pointSize.addEventListener("input", () => {
+    state.pointSize = Number(els.pointSize.value) / 100;
+    els.pointSizeValue.textContent = els.pointSize.value;
+    updatePointSizes();
   });
 
   els.resetCamera.addEventListener("click", () => resetCamera());
@@ -275,6 +301,26 @@ function initThree() {
   window.addEventListener("resize", onResize);
 }
 
+function setClassVisibility(label, visible) {
+  state.classVisibility.set(label, visible);
+  const meta = state.classPoints.get(label);
+  if (meta) meta.points.visible = visible;
+
+  const item = els.legend.querySelector(`[data-label="${label}"]`);
+  if (item) {
+    item.classList.toggle("is-hidden", !visible);
+    item.setAttribute("aria-pressed", String(visible));
+  }
+  renderOnce();
+}
+
+function updatePointSizes() {
+  for (const meta of state.classPoints.values()) {
+    meta.material.size = state.pointSize;
+  }
+  renderOnce();
+}
+
 function onResize() {
   if (!state.renderer || !state.camera) return;
 
@@ -318,36 +364,32 @@ function createPointsObject(dataset) {
   const N = dataset.N;
 
   state.positions = new Float32Array(N * 3);
-  state.colors = new Float32Array(N * 3);
+  const group = new THREE.Group();
 
-  for (let i = 0; i < N; i++) {
-    const label = dataset.labels[i];
-    const c = state.classColors.get(label) ?? new THREE.Color(0xffffff);
-    const p = i * 3;
-    state.colors[p] = c.r;
-    state.colors[p + 1] = c.g;
-    state.colors[p + 2] = c.b;
-  }
+  dataset.classLabels.forEach((label) => {
+    const indices = dataset.classToIndices.get(label) ?? [];
+    const positions = new Float32Array(indices.length * 3);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.computeBoundingSphere();
 
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(state.positions, 3));
-  geometry.setAttribute("color", new THREE.BufferAttribute(state.colors, 3));
-  geometry.computeBoundingSphere();
+    const color = state.classColors.get(label) ?? new THREE.Color(0xffffff);
+    const material = new THREE.PointsMaterial({
+      size: state.pointSize,
+      sizeAttenuation: true,
+      color,
+      transparent: true,
+      opacity: 0.95,
+    });
 
-  const material = new THREE.PointsMaterial({
-    size: 0.03,
-    sizeAttenuation: true,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.95,
+    const points = new THREE.Points(geometry, material);
+    points.visible = state.classVisibility.get(label) ?? true;
+    group.add(points);
+    state.classPoints.set(label, { points, geometry, material, positions, indices });
   });
 
-  const points = new THREE.Points(geometry, material);
-
-  state.geometry = geometry;
-  state.points = points;
-
-  state.scene.add(points);
+  state.pointsGroup = group;
+  state.scene.add(group);
 }
 
 function computeViewBasis(dataset) {
@@ -406,20 +448,38 @@ function computeViewBasis(dataset) {
 
 function updatePointsAndArrows() {
   const dataset = state.dataset;
-  if (!dataset || !state.geometry) return;
+  if (!dataset || !state.pointsGroup) return;
 
   const basis = computeViewBasis(dataset);
 
   // Project points
   projectPointsTo3(dataset.Xc, dataset.N, dataset.dim, basis, state.positions);
 
-  const posAttr = state.geometry.getAttribute("position");
-  posAttr.needsUpdate = true;
-  state.geometry.computeBoundingSphere();
+  let maxSq = 0;
+  for (let i = 0; i < state.positions.length; i += 3) {
+    const x = state.positions[i];
+    const y = state.positions[i + 1];
+    const z = state.positions[i + 2];
+    const d = x * x + y * y + z * z;
+    if (d > maxSq) maxSq = d;
+  }
+
+  for (const meta of state.classPoints.values()) {
+    const { indices, positions, geometry } = meta;
+    for (let i = 0; i < indices.length; i++) {
+      const src = indices[i] * 3;
+      const dst = i * 3;
+      positions[dst] = state.positions[src];
+      positions[dst + 1] = state.positions[src + 1];
+      positions[dst + 2] = state.positions[src + 2];
+    }
+    geometry.attributes.position.needsUpdate = true;
+    geometry.computeBoundingSphere();
+  }
 
   // Compute a stable-ish radius to set arrow lengths
-  const r = state.geometry.boundingSphere?.radius ?? 1.0;
-  state.baseRadius = isFinite(r) ? r : 1.0;
+  const r = Math.sqrt(maxSq);
+  state.baseRadius = Number.isFinite(r) && r > 0 ? r : 1.0;
 
   // Update primary arrow direction to show where w1 lies in the current view basis.
   const w1 = dataset.classWs.get(state.primaryLabel);
@@ -488,7 +548,7 @@ async function main() {
     updatePointsAndArrows();
 
     // Set a reasonable camera distance based on bounding sphere
-    const r = state.geometry.boundingSphere?.radius ?? 1.0;
+    const r = state.baseRadius || 1.0;
     state.camera.position.set(0, 0, Math.max(2.5, r * 3.2));
     state.baseCameraPos = state.camera.position.clone();
     state.controls.update();
