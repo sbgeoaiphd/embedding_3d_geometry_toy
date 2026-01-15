@@ -34,6 +34,7 @@ const els = {
 
   showArrow: document.getElementById("showArrow"),
   showAxes: document.getElementById("showAxes"),
+  randomTriad: document.getElementById("randomTriad"),
   resetCamera: document.getElementById("resetCamera"),
 
   legend: document.getElementById("legend"),
@@ -64,6 +65,7 @@ const state = {
   primaryArrow: null,
   secondaryArrow: null,
   baseCameraPos: null,
+  viewBasisBase: null,
 
   // buffers
   positions: null,
@@ -192,6 +194,7 @@ function buildUI(dataset) {
   });
 
   els.resetCamera.addEventListener("click", () => resetCamera());
+  els.randomTriad.addEventListener("click", () => randomizeTriad());
 
   // Legend
   buildLegend(dataset);
@@ -238,6 +241,7 @@ function initThree() {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
+  controls.addEventListener("change", renderOnce);
 
   const axesHelper = new THREE.AxesHelper(1.2);
   axesHelper.visible = state.showAxes;
@@ -291,6 +295,25 @@ function resetCamera() {
   renderOnce();
 }
 
+function randomizeTriad() {
+  if (!state.dataset) return;
+  state.viewBasisBase = randomTriad(state.dataset.dim);
+  state.primaryStrength = 0;
+  state.secondaryStrength = 0;
+  els.primaryStrength.value = "0";
+  els.primaryStrengthValue.textContent = "0%";
+  els.secondaryStrength.value = "0";
+  els.secondaryStrengthValue.textContent = "0%";
+  updateSceneFromUI();
+}
+
+function randomTriad(dim) {
+  const u1 = randomUnitVector(dim, state.rng);
+  const u2 = randomUnitVector(dim, state.rng);
+  const u3 = randomUnitVector(dim, state.rng);
+  return orthonormalize3(u1, u2, u3, state.rng);
+}
+
 function createPointsObject(dataset) {
   const N = dataset.N;
 
@@ -328,7 +351,7 @@ function createPointsObject(dataset) {
 }
 
 function computeViewBasis(dataset) {
-  const base = dataset.baseBasis; // [b1,b2,b3]
+  const base = state.viewBasisBase ?? dataset.baseBasis; // [b1,b2,b3]
   const dim = dataset.dim;
 
   const b1 = base[0], b2 = base[1], b3 = base[2];
@@ -456,6 +479,7 @@ async function main() {
     const config = DATASETS[state.datasetKey];
     state.dataset = await loadDataset(config);
 
+    state.viewBasisBase = state.dataset.baseBasis;
     buildUI(state.dataset);
     initThree();
     createPointsObject(state.dataset);
