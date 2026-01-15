@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Embedding Alignment Viewer</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="title">
+          <div class="title__main">Embedding Alignment Viewer</div>
+          <div class="title__sub" id="datasetName"></div>
+        </div>
+
+        <section class="panel">
+          <div class="panel__title">Primary alignment</div>
+
+          <label class="field">
+            <div class="field__label">Class</div>
+            <select id="primaryClass"></select>
+          </label>
+
+          <label class="field">
+            <div class="field__label" id="primaryStrengthLabel">Alignment strength</div>
+            <div class="row">
+              <input id="primaryStrength" type="range" min="0" max="100" step="1" value="0" />
+              <div class="value" id="primaryStrengthValue">0%</div>
+            </div>
+            <div class="hint">
+              Rotates the view's X axis toward the selected class's linear direction (w).
+            </div>
+          </label>
+        </section>
+
+        <section class="panel">
+          <div class="panel__title">Secondary alignment</div>
+
+          <label class="row checkbox">
+            <input id="secondaryEnabled" type="checkbox" />
+            <span>Enable secondary alignment</span>
+          </label>
+
+          <div id="secondaryControls" class="subpanel is-disabled">
+            <label class="field">
+              <div class="field__label">Secondary class</div>
+              <select id="secondaryClass"></select>
+            </label>
+
+            <label class="field">
+              <div class="field__label" id="secondaryStrengthLabel">Secondary strength</div>
+              <div class="row">
+                <input id="secondaryStrength" type="range" min="0" max="100" step="1" value="0" />
+                <div class="value" id="secondaryStrengthValue">0%</div>
+              </div>
+              <div class="hint">
+                Pulls the view's Y axis toward the secondary class direction, in the subspace orthogonal to X.
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__title">Display</div>
+
+          <label class="row checkbox">
+            <input id="showArrow" type="checkbox" checked />
+            <span>Show alignment arrow(s)</span>
+          </label>
+
+          <label class="row checkbox">
+            <input id="showAxes" type="checkbox" checked />
+            <span>Show axes</span>
+          </label>
+
+          <button id="resetCamera" class="button">Reset camera</button>
+        </section>
+
+        <section class="panel">
+          <div class="panel__title">Legend</div>
+          <div id="legend" class="legend"></div>
+        </section>
+
+        <section class="panel panel--status">
+          <div id="status" class="status">Loading…</div>
+        </section>
+      </aside>
+
+      <main id="viewport" aria-label="3D view"></main>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>
