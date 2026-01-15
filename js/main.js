@@ -53,7 +53,7 @@ const state = {
   secondaryStrength: 0,
   showArrow: true,
   showAxes: true,
-  pointSize: 0.03,
+  pointSize: 3,
 
   // three.js
   renderer: null,
@@ -101,16 +101,23 @@ function buildLegend(dataset) {
     item.dataset.label = label;
     item.setAttribute("aria-pressed", String(isVisible));
     if (!isVisible) item.classList.add("is-hidden");
+    if (isVisible) item.classList.add("is-active");
 
     const sw = document.createElement("div");
     sw.className = "legend__swatch";
     sw.style.background = `#${c.getHexString()}`;
 
     const txt = document.createElement("div");
+    txt.className = "legend__label";
     txt.textContent = label;
+
+    const stateLabel = document.createElement("div");
+    stateLabel.className = "legend__state";
+    stateLabel.textContent = isVisible ? "On" : "Off";
 
     item.appendChild(sw);
     item.appendChild(txt);
+    item.appendChild(stateLabel);
     els.legend.appendChild(item);
 
     item.addEventListener("click", () => {
@@ -211,11 +218,11 @@ function buildUI(dataset) {
     renderOnce();
   });
 
-  els.pointSize.value = Math.round(state.pointSize * 100).toString();
-  els.pointSizeValue.textContent = els.pointSize.value;
+  els.pointSize.value = Math.round(state.pointSize).toString();
+  els.pointSizeValue.textContent = `${els.pointSize.value}px`;
   els.pointSize.addEventListener("input", () => {
-    state.pointSize = Number(els.pointSize.value) / 100;
-    els.pointSizeValue.textContent = els.pointSize.value;
+    state.pointSize = Number(els.pointSize.value);
+    els.pointSizeValue.textContent = `${els.pointSize.value}px`;
     updatePointSizes();
   });
 
@@ -309,7 +316,10 @@ function setClassVisibility(label, visible) {
   const item = els.legend.querySelector(`[data-label="${label}"]`);
   if (item) {
     item.classList.toggle("is-hidden", !visible);
+    item.classList.toggle("is-active", visible);
     item.setAttribute("aria-pressed", String(visible));
+    const stateLabel = item.querySelector(".legend__state");
+    if (stateLabel) stateLabel.textContent = visible ? "On" : "Off";
   }
   renderOnce();
 }
@@ -317,6 +327,7 @@ function setClassVisibility(label, visible) {
 function updatePointSizes() {
   for (const meta of state.classPoints.values()) {
     meta.material.size = state.pointSize;
+    meta.material.needsUpdate = true;
   }
   renderOnce();
 }
@@ -376,7 +387,7 @@ function createPointsObject(dataset) {
     const color = state.classColors.get(label) ?? new THREE.Color(0xffffff);
     const material = new THREE.PointsMaterial({
       size: state.pointSize,
-      sizeAttenuation: true,
+      sizeAttenuation: false,
       color,
       transparent: true,
       opacity: 0.95,
