@@ -61,6 +61,11 @@ html, body {
   text-decoration: none;
 }
 
+.title__link:link,
+.title__link:visited {
+  color: var(--accent);
+}
+
 .title__link:hover {
   text-decoration: underline;
 }
@@ -267,6 +272,11 @@ input[type="range"] {
 .panel__note a {
   color: var(--accent);
   text-decoration: none;
+}
+
+.panel__note a:link,
+.panel__note a:visited {
+  color: var(--accent);
 }
 
 .panel__note a:hover {

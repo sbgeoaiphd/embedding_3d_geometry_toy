@@ -516,7 +516,8 @@ function updatePointsAndArrows() {
   const r = Math.sqrt(maxSq);
   state.baseRadius = Number.isFinite(r) && r > 0 ? r : 1.0;
   if (state.axesHelper) {
-    const axesScale = Math.max(1.2, state.baseRadius * 0.9);
+    const cameraDistance = state.camera ? state.camera.position.length() : 0;
+    const axesScale = Math.max(1.2, state.baseRadius * 0.9, cameraDistance * 0.25);
     state.axesHelper.scale.setScalar(axesScale);
   }
 
