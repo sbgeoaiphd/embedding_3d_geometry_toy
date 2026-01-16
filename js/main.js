@@ -477,7 +477,7 @@ function computeViewBasis(dataset) {
     }
 
     const u3 = b3;
-    return [u1, u2, u3];
+    return orthonormalize3(u1, u2, u3, state.rng);
   }
 
   // Primary axis: mix PCA axis1 with class w1
