@@ -36,6 +36,7 @@ const els = {
   pointSize: document.getElementById("pointSize"),
   pointSizeValue: document.getElementById("pointSizeValue"),
   randomTriad: document.getElementById("randomTriad"),
+  randomAxes: document.getElementById("randomAxes"),
   showPca: document.getElementById("showPca"),
   resetCamera: document.getElementById("resetCamera"),
   viewBasisNote: document.getElementById("viewBasisNote"),
@@ -70,6 +71,7 @@ const state = {
   secondaryArrow: null,
   baseCameraPos: null,
   viewBasisBase: null,
+  viewBasisMode: "pca",
 
   // buffers
   positions: null,
@@ -230,6 +232,7 @@ function buildUI(dataset) {
 
   els.resetCamera.addEventListener("click", () => resetCamera());
   els.randomTriad.addEventListener("click", () => randomizeTriad());
+  els.randomAxes.addEventListener("click", () => randomizeAxes());
   els.showPca.addEventListener("click", () => showPcaTriad());
   setViewBasisNote("Showing PCA axes 1–3");
 
@@ -365,6 +368,7 @@ function setViewBasisNote(text) {
 function randomizeTriad() {
   if (!state.dataset) return;
   state.viewBasisBase = randomTriad(state.dataset.dim);
+  state.viewBasisMode = "random-triad";
   state.primaryStrength = 0;
   state.secondaryStrength = 0;
   els.primaryStrength.value = "0";
@@ -375,9 +379,24 @@ function randomizeTriad() {
   updateSceneFromUI();
 }
 
+function randomizeAxes() {
+  if (!state.dataset) return;
+  state.viewBasisBase = randomAxes(state.dataset.dim);
+  state.viewBasisMode = "random-axes";
+  state.primaryStrength = 0;
+  state.secondaryStrength = 0;
+  els.primaryStrength.value = "0";
+  els.primaryStrengthValue.textContent = "0%";
+  els.secondaryStrength.value = "0";
+  els.secondaryStrengthValue.textContent = "0%";
+  setViewBasisNote("Showing random axes");
+  updateSceneFromUI();
+}
+
 function showPcaTriad() {
   if (!state.dataset) return;
   state.viewBasisBase = state.dataset.baseBasis;
+  state.viewBasisMode = "pca";
   state.primaryStrength = 0;
   state.secondaryStrength = 0;
   els.primaryStrength.value = "0";
@@ -393,6 +412,13 @@ function randomTriad(dim) {
   const u2 = randomUnitVector(dim, state.rng);
   const u3 = randomUnitVector(dim, state.rng);
   return orthonormalize3(u1, u2, u3, state.rng);
+}
+
+function randomAxes(dim) {
+  const u1 = randomUnitVector(dim, state.rng);
+  const u2 = randomUnitVector(dim, state.rng);
+  const u3 = randomUnitVector(dim, state.rng);
+  return [u1, u2, u3];
 }
 
 function createPointsObject(dataset) {
@@ -432,6 +458,27 @@ function computeViewBasis(dataset) {
   const dim = dataset.dim;
 
   const b1 = base[0], b2 = base[1], b3 = base[2];
+
+  if (state.viewBasisMode === "random-axes") {
+    let u1 = b1;
+    const w1 = dataset.classWs.get(state.primaryLabel);
+    if (w1) {
+      const mixed = mixAndNormalize(b1, w1, state.primaryStrength);
+      u1 = mixed ?? w1 ?? b1;
+    }
+
+    let u2 = b2;
+    if (state.secondaryEnabled) {
+      const w2 = dataset.classWs.get(state.secondaryLabel);
+      if (w2) {
+        const mixed2 = mixAndNormalize(b2, w2, state.secondaryStrength);
+        u2 = mixed2 ?? w2 ?? b2;
+      }
+    }
+
+    const u3 = b3;
+    return [u1, u2, u3];
+  }
 
   // Primary axis: mix PCA axis1 with class w1
   const w1 = dataset.classWs.get(state.primaryLabel);
