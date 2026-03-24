@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clay embeddings for land cover types</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script>
+      // Inject dataset choice before main_v2.js reads it from URL params.
+      if (!new URLSearchParams(window.location.search).has("dataset")) {
+        const url = new URL(window.location);
+        url.searchParams.set("dataset", "clay");
+        history.replaceState(null, "", url);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="title">
+          <div class="title__main">Clay embeddings for land cover types</div>
+          <div class="title__sub" id="datasetName"></div>
+          <a
+            class="title__link"
+            href="https://clay-foundation.github.io/model/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Reference: Clay Foundation Model
+          </a>
+        </div>
+
+        <section class="panel">
+          <div class="panel__title">Axis definitions</div>
+
+          <label class="field">
+            <div class="field__label">Axis 1</div>
+            <select id="axis1Select"></select>
+            <div class="hint" id="axis1Note"></div>
+          </label>
+
+          <label class="field">
+            <div class="field__label">Axis 2</div>
+            <select id="axis2Select"></select>
+            <div class="hint" id="axis2Note"></div>
+          </label>
+
+          <label class="field">
+            <div class="field__label">Axis 3</div>
+            <select id="axis3Select"></select>
+            <div class="hint" id="axis3Note"></div>
+          </label>
+        </section>
+
+        <section class="panel">
+          <div class="panel__title">Baseline generators</div>
+          <button id="randomTriad" class="button">Random triad</button>
+          <button id="randomAxes" class="button">Random axes</button>
+          <button id="showPca" class="button">PCA 1–3</button>
+          <div class="view-basis" id="viewBasisNote">Showing PCA axes 1–3</div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__title">Axis sliders</div>
+          <label class="row checkbox">
+            <input id="axisSlidersEnabled" type="checkbox" />
+            <span>Show axis sliders</span>
+          </label>
+
+          <div id="axisSlidersPanel" class="subpanel is-disabled">
+            <label class="field">
+              <div class="field__label">Axis 1 target</div>
+              <select id="axis1Target"></select>
+            </label>
+
+            <label class="field">
+              <div class="field__label">Axis 1 strength</div>
+              <div class="row">
+                <input id="axis1Strength" type="range" min="0" max="100" step="1" value="0" />
+                <div class="value" id="axis1StrengthValue">0%</div>
+              </div>
+            </label>
+
+            <label class="field">
+              <div class="field__label">Axis 2 target</div>
+              <select id="axis2Target"></select>
+            </label>
+
+            <label class="field">
+              <div class="field__label">Axis 2 strength</div>
+              <div class="row">
+                <input id="axis2Strength" type="range" min="0" max="100" step="1" value="0" />
+                <div class="value" id="axis2StrengthValue">0%</div>
+              </div>
+            </label>
+
+            <div class="hint">Axis 3 is always the orthonormal completion when sliders are shown.</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel__title">Expert options</div>
+
+          <label class="row checkbox">
+            <input id="expertMode" type="checkbox" />
+            <span>Expert mode (raw embedding axes)</span>
+          </label>
+
+          <label class="row checkbox">
+            <input id="showAdditionalPcs" type="checkbox" />
+            <span>Show additional PCs</span>
+          </label>
+        </section>
+
+        <section class="panel">
+          <div class="panel__title">Display</div>
+
+          <label class="row checkbox">
+            <input id="showArrow" type="checkbox" checked />
+            <span>Show alignment arrow(s)</span>
+          </label>
+
+          <label class="row checkbox">
+            <input id="showAxes" type="checkbox" checked />
+            <span>Show axes</span>
+          </label>
+
+          <label class="field">
+            <div class="field__label">Point size</div>
+            <div class="row">
+              <input id="pointSize" type="range" min="1" max="10" step="1" value="3" />
+              <div class="value" id="pointSizeValue">3</div>
+            </div>
+          </label>
+
+          <button id="resetCamera" class="button">Reset camera</button>
+        </section>
+
+        <section class="panel">
+          <div class="panel__title">Legend</div>
+          <div id="legend" class="legend"></div>
+        </section>
+
+        <section class="panel panel--status">
+          <div id="status" class="status">Loading…</div>
+        </section>
+
+        <section class="panel panel--credits">
+          <div class="panel__title">Data sources</div>
+          <div class="panel__note">
+            Clay Foundation Model embeddings via
+            <a href="https://clay-foundation.github.io/model/" target="_blank" rel="noreferrer">Clay</a>.
+          </div>
+          <div class="panel__note">
+            Land cover concept vectors trained with linear SVMs on human-labelled chips.
+          </div>
+        </section>
+      </aside>
+
+      <main id="viewport" aria-label="3D view"></main>
+    </div>
+
+    <script type="module" src="./js/main_v2.js"></script>
+  </body>
+</html>

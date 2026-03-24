@@ -16,7 +16,8 @@ export async function loadDataset(config) {
   const N = rawPoints.length;
   const dim = rawPoints[0].embedding?.length;
   assert(Number.isInteger(dim), "Each item must have an 'embedding' array.");
-  assert(dim === 64, `Expected embedding dim=64, got ${dim}.`);
+  const expectedDim = config.dim ?? 64;
+  assert(dim === expectedDim, `Expected embedding dim=${expectedDim}, got ${dim}.`);
 
   const ids = new Array(N);
   const labels = new Array(N);
@@ -46,17 +47,14 @@ export async function loadDataset(config) {
   const wsRes = await fetch(classWsUrl);
   assert(wsRes.ok, `Failed to fetch class Ws: ${classWsUrl} (${wsRes.status})`);
   const rawWs = await wsRes.json();
-  assert(rawWs && typeof rawWs === "object", "class_ws.json must be an object mapping class label -> 64D array.");
+  assert(rawWs && typeof rawWs === "object", "class_ws.json must be an object mapping class label -> vector array.");
 
   const classWs = new Map();
   const missing = [];
 
-  for (const c of classLabels) {
+  // Load ALL concept vectors from the JSON (not just those matching point classes).
+  for (const c of Object.keys(rawWs)) {
     const arr = rawWs[c];
-    if (!arr) {
-      missing.push(c);
-      continue;
-    }
     assert(Array.isArray(arr) && arr.length === dim, `W for class '${c}' must be length ${dim}.`);
     const w = new Float32Array(dim);
     for (let j = 0; j < dim; j++) w[j] = arr[j];
@@ -66,9 +64,16 @@ export async function loadDataset(config) {
     classWs.set(c, w);
   }
 
+  // Track which point classes are missing concept vectors.
+  for (const c of classLabels) {
+    if (!classWs.has(c)) missing.push(c);
+  }
   if (missing.length) {
     console.warn("Missing W vectors for classes:", missing);
   }
+
+  // All concept vector labels (superset of classLabels).
+  const conceptLabels = Array.from(classWs.keys()).sort();
 
   // Base 3D view basis: PCA on centered data.
   const baseBasis = computePcaBasis(Xc, N, dim, 3);
@@ -85,6 +90,7 @@ export async function loadDataset(config) {
     mean, // mean of X
     Xc,   // centered
     classWs,
+    conceptLabels,
     baseBasis,
     missingWs: missing,
   };

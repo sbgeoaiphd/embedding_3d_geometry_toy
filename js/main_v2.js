@@ -55,7 +55,7 @@ const els = {
 };
 
 const state = {
-  datasetKey: DEFAULT_DATASET_KEY,
+  datasetKey: new URLSearchParams(window.location.search).get("dataset") || DEFAULT_DATASET_KEY,
   dataset: null,
   pcaDirections: null,
 
@@ -251,7 +251,8 @@ function resolveAxisVector(def, fallback) {
 function getAxisDropdownOptions() {
   if (!state.dataset) return [];
   const options = [];
-  for (const label of state.dataset.classLabels) {
+  const conceptList = state.dataset.conceptLabels ?? state.dataset.classLabels;
+  for (const label of conceptList) {
     options.push({ value: axisDefValue(makeConceptDef(label)), text: axisDefLabel(makeConceptDef(label)) });
   }
 
@@ -272,7 +273,8 @@ function getAxisDropdownOptions() {
 function getSliderTargetOptions() {
   if (!state.dataset) return [];
   const options = [];
-  for (const label of state.dataset.classLabels) {
+  const conceptList = state.dataset.conceptLabels ?? state.dataset.classLabels;
+  for (const label of conceptList) {
     options.push({ value: axisDefValue(makeConceptDef(label)), text: axisDefLabel(makeConceptDef(label)) });
   }
 
@@ -352,6 +354,7 @@ function updateAxisNotes() {
 
 function setAxisDefs(newDefs) {
   state.axisDefs = newDefs;
+  state.basisScale = null; // reset scale so auto-scale recalculates for new basis
   updateAxisDropdowns();
   updateAxisNotes();
   updateSceneFromUI();
@@ -592,8 +595,14 @@ function randomizeTriad() {
 
 function randomizeAxes() {
   if (!state.dataset) return;
-  setAxisDefs([makeRawDef(0), makeRawDef(1), makeRawDef(2)]);
-  setViewBasisNote("Showing raw axes 0–2");
+  const dim = state.dataset.dim;
+  const pick = [];
+  while (pick.length < 3) {
+    const idx = Math.floor(state.rng() * dim);
+    if (!pick.includes(idx)) pick.push(idx);
+  }
+  setAxisDefs([makeRawDef(pick[0]), makeRawDef(pick[1]), makeRawDef(pick[2])]);
+  setViewBasisNote(`Showing raw axes ${pick.join(", ")}`);
 }
 
 function showPcaTriad() {
@@ -698,6 +707,7 @@ function updatePointsAndArrows() {
 
   projectPointsTo3(dataset.Xc, dataset.N, dataset.dim, basis, state.positions);
 
+  // Auto-scale: normalize projected positions so the cloud fills the view consistently.
   let maxSq = 0;
   for (let i = 0; i < state.positions.length; i += 3) {
     const x = state.positions[i];
@@ -705,6 +715,18 @@ function updatePointsAndArrows() {
     const z = state.positions[i + 2];
     const d = x * x + y * y + z * z;
     if (d > maxSq) maxSq = d;
+  }
+
+  const r = Math.sqrt(maxSq);
+  // When basis changes (buttons), recalculate scale so cloud fills the view.
+  // When sliders adjust, keep the same scale so other axes don't shrink.
+  if (state.basisScale == null && Number.isFinite(r) && r > 1e-9) {
+    state.basisScale = 1.0 / r;
+  }
+  const scale = state.basisScale ?? 1.0;
+
+  for (let i = 0; i < state.positions.length; i++) {
+    state.positions[i] *= scale;
   }
 
   for (const meta of state.classPoints.values()) {
@@ -720,8 +742,7 @@ function updatePointsAndArrows() {
     geometry.computeBoundingSphere();
   }
 
-  const r = Math.sqrt(maxSq);
-  state.baseRadius = Number.isFinite(r) && r > 0 ? r : 1.0;
+  state.baseRadius = 1.0;
   if (state.axesHelper) {
     const cameraDistance = state.camera ? state.camera.position.length() : 0;
     const axesScale = Math.max(1.2, state.baseRadius * 0.9, cameraDistance * 0.25);

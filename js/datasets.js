@@ -7,6 +7,12 @@ export const DATASETS = {
     embeddingsUrl: "./data/embeddings.json",
     classWsUrl: "./data/class_ws.json",
   },
+  clay: {
+    name: "Clay land cover",
+    embeddingsUrl: "./data/clay_embeddings.json",
+    classWsUrl: "./data/clay_class_ws.json",
+    dim: 1024,
+  },
 };
 
 export const DEFAULT_DATASET_KEY = "default";
